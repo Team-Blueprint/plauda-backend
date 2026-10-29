@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     app_name: str = "plauda"
     env: str = "dev"
     app_base_url: str = "http://localhost:8000"
+    frontend_base_url: str = "http://localhost:5173"
     log_level: str = "INFO"
 
     # Database (Supabase Postgres)

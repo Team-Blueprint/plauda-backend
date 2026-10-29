@@ -1,9 +1,8 @@
 import logging
 import re
 import secrets
-from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,14 +11,10 @@ from sqlalchemy.orm import selectinload
 from app.auth.schemas import LoginRequest, RegisterRequest, TokenResponse, UserOut
 from app.auth.security import create_access_token, hash_password, verify_password
 from app.db.models import Merchant, User
-from app.db.session import get_session
-from app.deps import get_current_user
+from app.deps import CurrentUserDep, SessionDep
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 logger = logging.getLogger(__name__)
-
-SessionDep = Annotated[AsyncSession, Depends(get_session)]
-CurrentUserDep = Annotated[User, Depends(get_current_user)]
 
 
 def _slugify(value: str) -> str:

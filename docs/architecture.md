@@ -35,6 +35,14 @@ backend/
 │       ├── routes.py      /auth/register, /auth/login, /auth/me
 │       ├── schemas.py     request/response models
 │       └── security.py    bcrypt hashing + JWT encode/decode
+│   └── merchants/
+│       ├── catalogue.py   products + variants CRUD
+│       ├── zones.py       delivery zones CRUD
+│       ├── business_info.py  markdown docs (about/policies/faq)
+│       ├── settings.py    store settings + chat link
+│       ├── public.py      public store meta (no auth)
+│       ├── schemas.py     Phase 1 request/response models
+│       └── constants.py   PayPal currencies, image cap, info sources
 ├── alembic/               async migrations
 ├── scripts/export_openapi.py
 └── tests/
@@ -94,6 +102,56 @@ endpoint receives a fully-typed `User`. Errors are raised as `HTTPException` and
 | `role` | varchar(16) | `owner` only in v1; `staff` reserved |
 | `created_at` / `updated_at` | timestamptz | |
 
+### `products`
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | UUID PK | |
+| `merchant_id` | UUID FK → merchants, cascade delete | |
+| `name` | varchar(200) | GIN trigram index (`pg_trgm`) for search |
+| `description` | text | default `""` |
+| `price` | numeric(12,2) | must be > 0 (API rule) |
+| `currency` | varchar(3) | must equal the store currency; PayPal allowlist |
+| `active` | boolean | default true; inactive products are hidden from the AI/chat |
+| `image_urls` | text[] | max 5 (API rule) |
+| `created_at` / `updated_at` | timestamptz | |
+
+Indexes: `(merchant_id, active)`, GIN trigram on `name`.
+
+### `product_variants`
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | UUID PK | |
+| `product_id` | UUID FK → products, cascade delete | indexed |
+| `name` | varchar(120) | e.g. "Red" |
+| `options` | jsonb | e.g. `{"color": "red"}` |
+| `price_override` | numeric(12,2) null | null = use product price |
+| `stock` | int | default 0 |
+
+### `delivery_zones`
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | UUID PK | |
+| `merchant_id` | UUID FK → merchants, cascade delete | indexed |
+| `name` | varchar(120) | |
+| `areas` | jsonb (list) | area names covered |
+| `fee` | numeric(12,2) | default 0 |
+| `eta_days` | int | default 0 |
+
+### `business_info_documents`
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | UUID PK | |
+| `merchant_id` | UUID FK → merchants, cascade delete | indexed |
+| `source` | varchar(16) | `about` / `policies` / `faq` (check constraint) |
+| `content` | text | markdown; unique per `(merchant_id, source)` |
+| `created_at` / `updated_at` | timestamptz | |
+
+Raw markdown lives here; Phase 1 AI chunks it into `knowledge_chunks` (not built yet).
+
 ## Supabase specifics
 
 - Paste the **connection-pooling** string from the Supabase dashboard as `DATABASE_URL` — plain
@@ -101,7 +159,7 @@ endpoint receives a fully-typed `User`. Errors are raised as `HTTPException` and
 - `app/db/engine.py` strips `sslmode` (asyncpg doesn't understand it), enables SSL for Supabase
   hosts, and disables statement caching when the host is a Supavisor pooler (transaction mode).
 - Run `create extension if not exists vector;` once in the Supabase SQL editor (needed from
-  Phase 1).
+  Phase 1 AI). Migration `0002` also enables `pg_trgm` for product-name search.
 - Alembic is the only way schema changes happen — no dashboard edits.
 
 ## Configuration

@@ -25,11 +25,23 @@ health check green. — ✅ **All verified.**
 > (encrypted, no certificate verification). The default stays `verify-full`; switch back on a
 > normal network.
 
-## Phase 1 — Catalogue & RAG — ⏸ not started
+## Phase 1 — Catalogue & RAG — 🔨 backend part done, AI paused
 
-Backend parts (products/variants/zones CRUD, settings, slug + public meta) and AI parts (chunker,
-embeddings, hybrid retrieval) are planned. **AI work is paused by request** — will confirm before
-starting any AI/embedding/agent work.
+| Task | Status |
+|---|---|
+| Products + variants CRUD (tenant-scoped, PayPal currency rules, max 5 images) | ✅ |
+| Delivery zones CRUD | ✅ |
+| Business info markdown storage (`about` / `policies` / `faq`) | ✅ storage only |
+| Store settings (currency, refund cap, recovery toggle/timeout) | ✅ |
+| Public store meta `GET /public/chat/{slug}/meta` (no auth) | ✅ |
+| Migration `0002` (products, variants, zones, business info, pg_trgm) | ✅ |
+| Tests: catalogue, variants, zones, business info, settings, public meta | ✅ 25 pass |
+| **AI: chunker, embedders (CF/Ollama/Gemini), hybrid retrieval** | ⏸ paused by request |
+| Supabase Storage image upload | ⏸ needs `SUPABASE_URL` + `SUPABASE_SERVICE_KEY` |
+| Procrastinate worker setup | ⏸ deferred until worker tasks (AI) begin |
+
+> Test suite currently takes ~6–7 min because every request round-trips to Supabase. A local
+> Postgres for tests can speed this up later (not required).
 
 ## Phase 2 — Grounded chat — ⏸ not started
 

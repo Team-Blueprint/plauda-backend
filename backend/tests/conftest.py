@@ -1,4 +1,5 @@
 import os
+import uuid
 
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -46,3 +47,25 @@ async def db_client(monkeypatch):
     engine_module.reset_engine()
     session_module.reset_sessionmaker()
     get_settings.cache_clear()
+
+
+async def register_merchant(db_client: AsyncClient, store_name: str | None = None) -> dict:
+    """Register a fresh merchant and return auth headers + merchant payload."""
+    name = store_name or f"Pytest Store {uuid.uuid4().hex[:6]}"
+    email = f"ada-{uuid.uuid4().hex[:10]}@plauda-test.com"
+    resp = await db_client.post(
+        "/auth/register",
+        json={"store_name": name, "email": email, "password": "s3cret-pass"},
+    )
+    assert resp.status_code == 201, resp.text
+    body = resp.json()
+    return {
+        "headers": {"Authorization": f"Bearer {body['access_token']}"},
+        "merchant": body["user"]["merchant"],
+        "email": email,
+    }
+
+
+@pytest.fixture
+async def merchant_auth(db_client):
+    return await register_merchant(db_client)

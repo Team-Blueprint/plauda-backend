@@ -9,6 +9,11 @@ from app.config import get_settings
 from app.db.engine import get_engine
 from app.errors import register_error_handlers
 from app.logging import configure_logging
+from app.merchants.business_info import router as business_info_router
+from app.merchants.catalogue import router as catalogue_router
+from app.merchants.public import router as public_router
+from app.merchants.settings import router as settings_router
+from app.merchants.zones import router as zones_router
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +36,11 @@ def create_app() -> FastAPI:
     )
     register_error_handlers(app)
     app.include_router(auth_router)
+    app.include_router(catalogue_router)
+    app.include_router(zones_router)
+    app.include_router(business_info_router)
+    app.include_router(settings_router)
+    app.include_router(public_router)
 
     @app.get("/healthz", tags=["system"])
     async def healthz() -> dict:

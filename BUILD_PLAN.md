@@ -257,6 +257,8 @@ products(id, merchant_id FK, name, description, price NUMERIC, currency, active,
          image_urls TEXT[], created_at)
 product_variants(id, product_id FK, name, options JSONB, price_override, stock INT)
 delivery_zones(id, merchant_id FK, name, areas JSONB, fee NUMERIC, eta_days INT)
+business_info_documents(id, merchant_id FK, source[about|policies|faq], content TEXT,
+                        timestamps)                      -- raw markdown, chunked into knowledge_chunks
 knowledge_chunks(id, merchant_id FK, source[about|policies|faq], title, content,
                  embedding vector(1024), embedding_provider, embedding_model, tsv tsvector)
 customers(id, merchant_id FK, name, contact, notes)            -- minimal in v1
