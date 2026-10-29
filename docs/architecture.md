@@ -121,7 +121,7 @@ All settings live in `app/config.py` and are loaded from environment / `backend/
 
 - `uv run pytest -q` — unit tests (security, healthz) run offline.
 - DB-backed tests (`tests/test_auth_api.py`) run only when `TEST_DATABASE_URL` is set; they create
-  the schema with `metadata.create_all` and clean up rows marked `@plauda-test.local` /
+  the schema with `metadata.create_all` and clean up rows marked `@plauda-test.com` /
   slug prefix `pytest-`.
 - CI (`.github/workflows/ci.yml`): `ruff check`, `ruff format --check`, `pytest`.
 

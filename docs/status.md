@@ -12,15 +12,18 @@ Last updated: 2026-10-29
 | Alembic wired (async) + migration `0001` (merchants, users) | ✅ |
 | JWT auth: `POST /auth/register`, `POST /auth/login`, `GET /auth/me` (bcrypt + jose) | ✅ |
 | CORS, `/healthz`, JSON structured logging, error handlers | ✅ |
-| Tests: security units, healthz, auth API (DB-gated) | ✅ 5 pass / 4 skip |
+| Tests: security units, healthz, auth API | ✅ 9 pass (against real Supabase) |
 | CI: ruff + format check + pytest | ✅ |
 | Contracts for frontend: `openapi.json`, `sse.md`, `enums.md`, API guides | ✅ |
+| Migration `0001` applied to Supabase | ✅ |
+| Live HTTP verification: `/healthz` (db ok), register → login → me | ✅ 2026-10-29 |
 
 **Done when:** register/login works against Supabase; migrations apply cleanly from an empty DB;
-health check green.
+health check green. — ✅ **All verified.**
 
-**Blocked on:** Supabase project credentials (`DATABASE_URL`) and `JWT_SECRET` in `backend/.env`.
-Once present: `make migrate` → `make dev` → `POST /auth/register` → run `TEST_DATABASE_URL` tests.
+> Dev note: this network intercepts TLS, so `backend/.env` uses `DATABASE_SSL_MODE=require`
+> (encrypted, no certificate verification). The default stays `verify-full`; switch back on a
+> normal network.
 
 ## Phase 1 — Catalogue & RAG — ⏸ not started
 
@@ -42,8 +45,7 @@ starting any AI/embedding/agent work.
 
 | Item | Owner | Notes |
 |---|---|---|
-| Supabase project + `DATABASE_URL` | You | Needed to run migrations and the DB-backed tests |
-| `JWT_SECRET` | You | Generate: `python -c "import secrets; print(secrets.token_urlsafe(48))"` |
 | Frontend repo/location | Frontend dev | Contracts in `docs/contracts/` are ready |
 | Domain for `plauda.app` links | You | Open question in BUILD_PLAN §16 |
 | AI start approval | You | Paused until you say go |
+| Rotate Supabase DB password | You (optional) | The dev connection string was shared in chat; it is only in gitignored `.env` |

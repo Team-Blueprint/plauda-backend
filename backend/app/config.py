@@ -20,6 +20,10 @@ class Settings(BaseSettings):
 
     # Database (Supabase Postgres)
     database_url: str = ""
+    test_database_url: str = ""
+    # asyncpg sslmode: verify-full (default), verify-ca, require, prefer, allow, disable.
+    # Use "require" only when the local network intercepts TLS (self-signed chain).
+    database_ssl_mode: str = "verify-full"
 
     # Auth
     jwt_secret: str = "change-me"

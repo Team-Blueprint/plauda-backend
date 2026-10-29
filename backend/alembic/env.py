@@ -47,15 +47,13 @@ def do_run_migrations(connection: Connection) -> None:
 
 
 async def run_async_migrations() -> None:
-    url, connect_args = normalize_database_url(settings.database_url_async)
-    engine_kwargs: dict = {}
-    if connect_args.get("statement_cache_size") == 0:
-        engine_kwargs["prepared_statement_cache_size"] = 0
+    url, connect_args = normalize_database_url(
+        settings.database_url_async, ssl_mode=settings.database_ssl_mode
+    )
     connectable = create_async_engine(
         url,
         poolclass=pool.NullPool,
         connect_args=connect_args,
-        **engine_kwargs,
     )
 
     async with connectable.connect() as connection:

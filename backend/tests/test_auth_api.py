@@ -4,7 +4,7 @@ PASSWORD = "s3cret-pass"
 
 
 def _unique_email() -> str:
-    return f"ada-{uuid.uuid4().hex[:10]}@plauda-test.local"
+    return f"ada-{uuid.uuid4().hex[:10]}@plauda-test.com"
 
 
 async def test_register_login_me(db_client):

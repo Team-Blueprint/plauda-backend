@@ -6,26 +6,30 @@ from app.config import get_settings
 _engine: AsyncEngine | None = None
 
 
-def normalize_database_url(raw_url: str) -> tuple[URL, dict]:
+def normalize_database_url(raw_url: str, ssl_mode: str = "verify-full") -> tuple[URL, dict]:
     """Split Supabase-specific URL params into asyncpg connect args.
 
     asyncpg does not understand ``sslmode``, which Supabase connection strings often carry.
-    Supavisor transaction mode also requires client-side statement caching to be disabled.
+    Supavisor pooling also requires client-side statement caching to be disabled.
     """
     url = make_url(raw_url)
-    original_query = dict(url.query)
-    query = dict(original_query)
-    sslmode = query.pop("sslmode", None)
+    query = dict(url.query)
+    url_sslmode = query.pop("sslmode", None)
     query.pop("ssl", None)
-    if query != original_query:
-        url = url.set(query=query)
 
     connect_args: dict = {}
     host = url.host or ""
     if "pooler.supabase.com" in host:
+        # Supavisor pooling: disable both dialect-level and asyncpg statement caches.
         connect_args["statement_cache_size"] = 0
-    if sslmode in {"require", "verify-ca", "verify-full"} or host.endswith(".supabase.co"):
-        connect_args["ssl"] = True
+        query["prepared_statement_cache_size"] = "0"
+    if url_sslmode is not None:
+        connect_args["ssl"] = url_sslmode
+    elif host.endswith((".supabase.co", ".supabase.com")):
+        connect_args["ssl"] = ssl_mode
+
+    if query != dict(url.query):
+        url = url.set(query=query)
     return url, connect_args
 
 
@@ -35,16 +39,13 @@ def get_engine() -> AsyncEngine:
         settings = get_settings()
         if not settings.database_url:
             raise RuntimeError("DATABASE_URL is not configured (see backend/.env.example)")
-        url, connect_args = normalize_database_url(settings.database_url_async)
-        engine_kwargs: dict = {}
-        if connect_args.get("statement_cache_size") == 0:
-            # Supavisor transaction pooling: no server-side prepared statements.
-            engine_kwargs["prepared_statement_cache_size"] = 0
+        url, connect_args = normalize_database_url(
+            settings.database_url_async, ssl_mode=settings.database_ssl_mode
+        )
         _engine = create_async_engine(
             url,
             pool_pre_ping=True,
             connect_args=connect_args,
-            **engine_kwargs,
         )
     return _engine
 

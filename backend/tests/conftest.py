@@ -21,7 +21,7 @@ async def client():
 @pytest.fixture
 async def db_client(monkeypatch):
     """Client backed by TEST_DATABASE_URL; skips when it is not configured."""
-    url = os.getenv("TEST_DATABASE_URL")
+    url = os.getenv("TEST_DATABASE_URL") or get_settings().test_database_url
     if not url:
         pytest.skip("TEST_DATABASE_URL not set — skipping DB-backed tests")
 
@@ -40,7 +40,7 @@ async def db_client(monkeypatch):
 
     # Remove only rows created by this suite (marked by the email domain / slug prefix).
     async with engine.begin() as conn:
-        await conn.execute(text("DELETE FROM users WHERE email LIKE '%@plauda-test.local'"))
+        await conn.execute(text("DELETE FROM users WHERE email LIKE '%@plauda-test.com'"))
         await conn.execute(text("DELETE FROM merchants WHERE slug LIKE 'pytest-%'"))
     await engine.dispose()
     engine_module.reset_engine()
