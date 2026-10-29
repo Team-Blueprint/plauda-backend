@@ -83,6 +83,31 @@ Variant rules: `name` 1–120; `options` arbitrary JSON object; `price_override`
 (when null, the product price applies); `stock` integer ≥ 0. Sending `{"price_override": null}`
 clears an override.
 
+### Product images
+
+#### `POST /products/{product_id}/images` → `201`
+
+`multipart/form-data` with a single field named `file`.
+
+```bash
+curl -X POST "http://localhost:8000/products/$PRODUCT_ID/images" \
+  -H "Authorization: Bearer $TOKEN" \
+  -F "file=@scarf.png;type=image/png"
+```
+
+- Allowed types: **JPEG, PNG, WebP, GIF**
+- Max **5 MB** per file, max **5 images** per product
+- Returns the **updated product** (with the new URL in `image_urls`)
+- The image URL is public and directly renderable in `<img src>`
+
+Errors: `413` too large · `422` unsupported type / image limit reached · `501` storage not
+configured · `502` upstream storage failure.
+
+#### `DELETE /products/{product_id}/images?url=…` → `204`
+
+Removes the URL from `image_urls` and deletes the stored object. A deleted image may stay visible
+via Supabase's CDN cache for a short while (expected). `404` if the URL is not on this product.
+
 ---
 
 ## Delivery zones

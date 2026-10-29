@@ -36,13 +36,14 @@ backend/
 │       ├── schemas.py     request/response models
 │       └── security.py    bcrypt hashing + JWT encode/decode
 │   └── merchants/
-│       ├── catalogue.py   products + variants CRUD
+│       ├── catalogue.py   products + variants CRUD + image upload
 │       ├── zones.py       delivery zones CRUD
 │       ├── business_info.py  markdown docs (about/policies/faq)
 │       ├── settings.py    store settings + chat link
 │       ├── public.py      public store meta (no auth)
+│       ├── storage.py     Supabase Storage adapter (bucket/upload/delete)
 │       ├── schemas.py     Phase 1 request/response models
-│       └── constants.py   PayPal currencies, image cap, info sources
+│       └── constants.py   PayPal currencies, image rules, info sources
 ├── alembic/               async migrations
 ├── scripts/export_openapi.py
 └── tests/
@@ -161,6 +162,19 @@ Raw markdown lives here; Phase 1 AI chunks it into `knowledge_chunks` (not built
 - Run `create extension if not exists vector;` once in the Supabase SQL editor (needed from
   Phase 1 AI). Migration `0002` also enables `pg_trgm` for product-name search.
 - Alembic is the only way schema changes happen — no dashboard edits.
+
+## Product image storage
+
+- Adapter: `app/merchants/storage.py` — thin httpx client to the Storage REST API (no SDK).
+- Bucket: `SUPABASE_STORAGE_BUCKET` (default `product-images`), **public**, auto-created on first
+  upload.
+- Object path: `{merchant_id}/{product_id}/{uuid}{ext}`; public URL is
+  `{SUPABASE_URL}/storage/v1/object/public/{bucket}/{path}`.
+- Auth: `SUPABASE_SERVICE_KEY` (legacy `service_role` JWT or `sb_secret_...`). The adapter sends
+  the key on both `apikey` and `Authorization: Bearer` because `sb_secret_` keys are not JWTs and
+  Storage requires an Authorization header. The key never reaches the frontend — uploads are
+  proxied through the authenticated API.
+- Limits enforced by the API: image content-types only, 5 MB/file, 5 images/product.
 
 ## Configuration
 

@@ -1,12 +1,15 @@
+import logging
 import uuid
+from typing import Annotated
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, File, HTTPException, UploadFile, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.db.models import Product, ProductVariant
 from app.deps import CurrentUserDep, SessionDep
+from app.merchants.constants import IMAGE_CONTENT_TYPES, MAX_IMAGE_BYTES, MAX_PRODUCT_IMAGES
 from app.merchants.schemas import (
     ProductCreate,
     ProductOut,
@@ -15,8 +18,10 @@ from app.merchants.schemas import (
     VariantOut,
     VariantUpdate,
 )
+from app.merchants.storage import StorageError, get_storage
 
 router = APIRouter(prefix="/products", tags=["catalogue"])
+logger = logging.getLogger(__name__)
 
 
 async def _get_product_or_404(
@@ -185,3 +190,84 @@ async def delete_variant(
     variant = await _get_variant_or_404(session, product, variant_id)
     await session.delete(variant)
     await session.commit()
+
+
+@router.post(
+    "/{product_id}/images",
+    response_model=ProductOut,
+    status_code=status.HTTP_201_CREATED,
+)
+async def upload_product_image(
+    product_id: uuid.UUID,
+    file: Annotated[UploadFile, File()],
+    user: CurrentUserDep,
+    session: SessionDep,
+) -> Product:
+    storage = get_storage()
+    if not storage.is_configured:
+        raise HTTPException(
+            status_code=status.HTTP_501_NOT_IMPLEMENTED,
+            detail="Image storage is not configured",
+        )
+
+    product = await _get_product_or_404(session, user.merchant_id, product_id)
+    if len(product.image_urls) >= MAX_PRODUCT_IMAGES:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=f"A product can have at most {MAX_PRODUCT_IMAGES} images",
+        )
+
+    content_type = (file.content_type or "").lower()
+    extension = IMAGE_CONTENT_TYPES.get(content_type)
+    if extension is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Unsupported image type. Allowed: JPEG, PNG, WebP, GIF",
+        )
+
+    data = await file.read(MAX_IMAGE_BYTES + 1)
+    if not data:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Empty file")
+    if len(data) > MAX_IMAGE_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"Image too large (max {MAX_IMAGE_BYTES // (1024 * 1024)} MB)",
+        )
+
+    path = f"{user.merchant_id}/{product.id}/{uuid.uuid4().hex}{extension}"
+    try:
+        await storage.upload(path, data, content_type)
+    except StorageError as exc:
+        logger.exception("product image upload failed")
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY, detail="Image upload failed"
+        ) from exc
+
+    product.image_urls = [*product.image_urls, storage.public_url(path)]
+    await session.commit()
+    return await _get_product_or_404(session, user.merchant_id, product_id)
+
+
+@router.delete("/{product_id}/images", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_product_image(
+    product_id: uuid.UUID,
+    url: str,
+    user: CurrentUserDep,
+    session: SessionDep,
+) -> None:
+    product = await _get_product_or_404(session, user.merchant_id, product_id)
+    if url not in product.image_urls:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Image not found on this product"
+        )
+
+    product.image_urls = [existing for existing in product.image_urls if existing != url]
+    await session.commit()
+
+    storage = get_storage()
+    path = storage.path_from_public_url(url)
+    if storage.is_configured and path:
+        try:
+            await storage.delete(path)
+        except StorageError:
+            logger.warning("could not delete storage object for %s", url)

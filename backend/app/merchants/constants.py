@@ -30,5 +30,13 @@ PAYPAL_SUPPORTED_CURRENCIES: frozenset[str] = frozenset(
 )
 
 MAX_PRODUCT_IMAGES = 5
+MAX_IMAGE_BYTES = 5 * 1024 * 1024  # 5 MB per file
+
+IMAGE_CONTENT_TYPES: dict[str, str] = {
+    "image/jpeg": ".jpg",
+    "image/png": ".png",
+    "image/webp": ".webp",
+    "image/gif": ".gif",
+}
 
 BUSINESS_INFO_SOURCES: tuple[str, ...] = ("about", "policies", "faq")

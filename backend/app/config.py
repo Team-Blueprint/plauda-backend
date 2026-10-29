@@ -26,6 +26,11 @@ class Settings(BaseSettings):
     # Use "require" only when the local network intercepts TLS (self-signed chain).
     database_ssl_mode: str = "verify-full"
 
+    # Supabase Storage (product images)
+    supabase_url: str = ""
+    supabase_service_key: str = ""
+    supabase_storage_bucket: str = "product-images"
+
     # Auth
     jwt_secret: str = "change-me"
     jwt_algorithm: str = "HS256"
