@@ -1,7 +1,7 @@
 # Backend architecture
 
-> Phase 0 (foundations) is implemented. Catalogue, RAG, agent, orders, and payments land in later
-> phases — see `status.md`.
+> Phases 0–1 and the non-AI parts of Phase 3 (orders foundation) are implemented. Chat, RAG,
+> agent, and payments land in later phases — see `status.md`.
 
 ## Stack
 
@@ -30,7 +30,7 @@ backend/
 │   │   ├── base.py        DeclarativeBase
 │   │   ├── engine.py      engine factory + Supabase URL normalization (SSL, pooler)
 │   │   ├── session.py     async session factory + get_session dependency
-│   │   └── models.py      SQLAlchemy models (Phase 0: Merchant, User)
+│   │   └── models.py      SQLAlchemy models (merchants, users, catalogue, orders)
 │   └── auth/
 │       ├── routes.py      /auth/register, /auth/login, /auth/me
 │       ├── schemas.py     request/response models
@@ -44,13 +44,19 @@ backend/
 │       ├── storage.py     Supabase Storage adapter (bucket/upload/delete)
 │       ├── schemas.py     Phase 1 request/response models
 │       └── constants.py   PayPal currencies, image rules, info sources
+│   └── orders/
+│       ├── routes.py      dashboard orders list/detail/cancel/fulfill
+│       ├── service.py     order creation, item/delivery mutations, totals recomputation
+│       ├── state_machine.py  statuses + allowed transitions (paid = webhook only)
+│       ├── schemas.py     order response models
+│       └── errors.py      domain errors mapped to HTTP by app/errors.py
 ├── alembic/               async migrations
 ├── scripts/export_openapi.py
 └── tests/
 ```
 
-Later phases add sibling packages: `merchants/` (catalogue, zones, settings), `rag/`, `agent/`,
-`orders/`, `payments/`, `conversations/`, `workers/` — exactly as laid out in `BUILD_PLAN.md` §10.
+Later phases add sibling packages: `rag/`, `agent/`, `payments/`, `conversations/`, `workers/` —
+exactly as laid out in `BUILD_PLAN.md` §10.
 
 ## Request lifecycle
 
@@ -153,6 +159,49 @@ Indexes: `(merchant_id, active)`, GIN trigram on `name`.
 
 Raw markdown lives here; Phase 1 AI chunks it into `knowledge_chunks` (not built yet).
 
+### `orders`
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | UUID PK | |
+| `merchant_id` | UUID FK → merchants, cascade delete | composite index `(merchant_id, status)` |
+| `conversation_id` / `customer_id` | UUID null | FKs added when those tables land (Phase 2) |
+| `status` | varchar(20) | check constraint, see state machine below |
+| `currency` | varchar(3) | copied from the merchant at draft creation |
+| `subtotal` / `delivery_fee` / `total` | numeric(12,2) null | written only by the order service |
+| `delivery_details` | jsonb null | `{zone_id, zone_name, fee, eta_days, address}` |
+| `paypal_order_id` / `approval_link` | text null | Phase 4 |
+| `reminder_count` | int | default 0 (Phase 5) |
+| `paid_at` / `expires_at` | timestamptz null | |
+| `created_at` / `updated_at` | timestamptz | |
+
+Partial index `(merchant_id) WHERE status = 'pending_payment'` for the recovery sweep.
+
+### `order_items`
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | UUID PK | |
+| `order_id` | UUID FK → orders, cascade delete | indexed |
+| `product_id` | UUID FK → products, set null on delete | nullable; snapshot preserves history |
+| `variant_id` | UUID FK → product_variants, set null on delete | nullable |
+| `name_snapshot` | varchar(200) | product name at add/confirm time |
+| `variant_snapshot` | jsonb null | `{name, options}` |
+| `qty` | int | merged when the same product+variant is added twice |
+| `unit_price` | numeric(12,2) | refreshed from the catalogue at confirmation |
+
+The dashboard cannot delete a product with order history (`409`) — deactivate it instead.
+
+## Orders & the money invariant
+
+- `app/orders/service.py` is the only writer of totals and status transitions.
+- At confirmation: `subtotal = Σ(qty × current unit_price)`, `delivery_fee = current zone fee`,
+  `total = subtotal + delivery_fee` — all quantized to 2 decimal places.
+- Catalogue/zone rows are re-read at confirmation, so stale chat data can never set a price.
+- `paid` is written by the verified PayPal webhook only (`ensure_transition` rejects every other
+  trigger). Owner API exposes only `cancel` and `fulfill`.
+- `fulfilled` requires `paid`; `cancelled` requires pre-payment; terminal states never transition.
+
 ## Supabase specifics
 
 - Paste the **connection-pooling** string from the Supabase dashboard as `DATABASE_URL` — plain
@@ -187,6 +236,7 @@ All settings live in `app/config.py` and are loaded from environment / `backend/
 
 - JSON-per-line logging to stdout (`app/logging.py`), level via `LOG_LEVEL`.
 - `IntegrityError` → `409 {"detail": "Resource already exists"}`.
+- Order domain errors (`app/orders/errors.py`) map to `404` / `409` / `422` with their message.
 - Unhandled exceptions → logged with traceback, client sees `500 {"detail": "Internal server error"}`.
 
 ## Testing

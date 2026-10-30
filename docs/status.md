@@ -40,12 +40,23 @@ health check green. — ✅ **All verified.**
 | **AI: chunker, embedders (CF/Ollama/Gemini), hybrid retrieval** | ⏸ paused by request |
 | Procrastinate worker setup | ⏸ deferred until worker tasks (AI) begin |
 
-> Test suite currently takes ~6–7 min because every request round-trips to Supabase. A local
+> Test suite currently takes ~10–15 min because every request round-trips to Supabase. A local
 > Postgres for tests can speed this up later (not required).
 
 ## Phase 2 — Grounded chat — ⏸ not started
 
-## Phase 3 — Ordering & handoff — ⏸ not started
+## Phase 3 — Ordering & handoff — 🔨 order backend done, AI paused
+
+| Task | Status |
+|---|---|
+| Order draft model + state machine (`draft → confirmed`, totals recomputed server-side) | ✅ |
+| Orders API: `GET /orders`, `GET /orders/{id}`, `POST /orders/{id}/cancel`, `POST /orders/{id}/fulfill` | ✅ |
+| `paid` webhook-only invariant + `pending_payment`/`paid`/`fulfill`/`expire` service paths | ✅ (webhook wiring in Phase 4) |
+| Product delete guard for order history (`409`) | ✅ |
+| Migration `0003` (orders, order_items, status check, recovery index) | ✅ applied |
+| Tests: state machine, totals recomputation, merge, lifecycle, tenant scoping | ✅ 10 pass (41 total) |
+| **PydanticAI agent + tool registry + state-gated tools** | ⏸ paused by request |
+| **Conversations, SSE, handoff/inbox** | ⏸ paused (needs chat/AI approval) |
 
 ## Phase 4 — PayPal — ⏸ not started
 

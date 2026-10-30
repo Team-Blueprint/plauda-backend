@@ -7,7 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.db.models import Product, ProductVariant
+from app.db.models import OrderItem, Product, ProductVariant
 from app.deps import CurrentUserDep, SessionDep
 from app.merchants.constants import IMAGE_CONTENT_TYPES, MAX_IMAGE_BYTES, MAX_PRODUCT_IMAGES
 from app.merchants.schemas import (
@@ -131,8 +131,16 @@ async def delete_product(
     user: CurrentUserDep,
     session: SessionDep,
 ) -> None:
-    """Hard delete. Phase 3 adds a guard: products referenced by order items must be deactivated."""
+    """Hard delete. Products referenced by order history must be deactivated instead."""
     product = await _get_product_or_404(session, user.merchant_id, product_id)
+    referenced = await session.scalar(
+        select(OrderItem.id).where(OrderItem.product_id == product_id).limit(1)
+    )
+    if referenced is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Product has order history; deactivate it instead of deleting",
+        )
     await session.delete(product)
     await session.commit()
 

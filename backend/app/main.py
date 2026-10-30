@@ -14,6 +14,7 @@ from app.merchants.catalogue import router as catalogue_router
 from app.merchants.public import router as public_router
 from app.merchants.settings import router as settings_router
 from app.merchants.zones import router as zones_router
+from app.orders.routes import router as orders_router
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +42,7 @@ def create_app() -> FastAPI:
     app.include_router(business_info_router)
     app.include_router(settings_router)
     app.include_router(public_router)
+    app.include_router(orders_router)
 
     @app.get("/healthz", tags=["system"])
     async def healthz() -> dict:

@@ -183,3 +183,90 @@ class BusinessInfoDocument(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
+
+
+class Order(Base):
+    """Server-owned order. Totals are only written by the order service, never by the model."""
+
+    __tablename__ = "orders"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('draft', 'confirmed', 'pending_payment', 'paid', "
+            "'fulfilled', 'cancelled', 'expired')",
+            name="ck_orders_status",
+        ),
+        Index("ix_orders_merchant_status", "merchant_id", "status"),
+        Index(
+            "ix_orders_pending_payment",
+            "merchant_id",
+            postgresql_where=text("status = 'pending_payment'"),
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    merchant_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("merchants.id", ondelete="CASCADE"), nullable=False
+    )
+    # FK constraints are added when the conversations/customers tables land (Phase 2).
+    conversation_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    customer_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="draft")
+    currency: Mapped[str] = mapped_column(String(3), nullable=False)
+    subtotal: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
+    delivery_fee: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
+    total: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
+    delivery_details: Mapped[dict | None] = mapped_column(JSONB)
+    paypal_order_id: Mapped[str | None] = mapped_column(String(64))
+    approval_link: Mapped[str | None] = mapped_column(Text)
+    reminder_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+    items: Mapped[list["OrderItem"]] = relationship(
+        back_populates="order",
+        cascade="all, delete-orphan",
+        order_by="OrderItem.created_at",
+        lazy="selectin",
+    )
+
+    @property
+    def item_count(self) -> int:
+        return sum(item.qty for item in self.items)
+
+
+class OrderItem(Base):
+    """Line item with a name/price snapshot. Catalogue rows may change after the order."""
+
+    __tablename__ = "order_items"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    order_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("orders.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    product_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("products.id", ondelete="SET NULL"), index=True
+    )
+    variant_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("product_variants.id", ondelete="SET NULL")
+    )
+    name_snapshot: Mapped[str] = mapped_column(String(200), nullable=False)
+    variant_snapshot: Mapped[dict | None] = mapped_column(JSONB)
+    qty: Mapped[int] = mapped_column(Integer, nullable=False)
+    unit_price: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    order: Mapped[Order] = relationship(back_populates="items")
+
+    @property
+    def line_total(self) -> Decimal:
+        return (self.unit_price * self.qty).quantize(Decimal("0.01"))

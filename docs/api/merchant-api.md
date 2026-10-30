@@ -68,8 +68,8 @@ Returns the store's products, newest first. Inactive products are excluded unles
 
 - `PATCH` accepts any subset of `name`, `description`, `price`, `currency`, `active`,
   `image_urls`. Null values are ignored.
-- `DELETE` → `204`. Hard delete today; Phase 3 will return `409` for products referenced by
-  historical order items (deactivate instead).
+- `DELETE` → `204`. Products referenced by historical order items cannot be deleted (`409`) —
+  deactivate them with `PATCH {"active": false}` instead.
 
 ### Variants
 

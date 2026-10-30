@@ -413,7 +413,8 @@ Each phase ends with a demo-able "done when". Tasks are checkboxes; tests named 
   data, and demonstrably refuses to invent anything outside it.
 
 ### Phase 3 — Agent ordering & handoff
-- [ ] Order draft model + state machine (`draft → confirmed`; totals recomputed server-side)
+- [x] Order draft model + state machine (`draft → confirmed`; totals recomputed server-side) —
+      backend service + dashboard API done; agent tools still pending with the AI phase
 - [ ] PydanticAI agent with §4.2 tool registry + state-gated tool filtering + order-draft
       re-injection into system prompt
 - [ ] Recommendation behavior (preferences/budget → catalogue SQL query strategy)

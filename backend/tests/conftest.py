@@ -69,3 +69,10 @@ async def register_merchant(db_client: AsyncClient, store_name: str | None = Non
 @pytest.fixture
 async def merchant_auth(db_client):
     return await register_merchant(db_client)
+
+
+@pytest.fixture
+async def db_session(db_client):
+    """Direct session on the test database (same engine as db_client)."""
+    async with session_module.get_sessionmaker()() as session:
+        yield session
