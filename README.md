@@ -4,8 +4,9 @@ Plauda gives every business an **AI employee**: it chats with customers from the
 approved information, recommends products, builds structured orders, sends a PayPal checkout,
 confirms payment from a verified webhook, and logs the sale to the owner's dashboard — 24/7.
 
-> Status: **Phase 0 — Foundations** (backend). See `BUILD_PLAN.md` for the full plan and
-> `TASK_DIVISION.md` for the track split.
+> Status: **Phase 4 backend** — catalogue, orders, conversations/SSE, and the PayPal layer are
+> built; AI/agent work is paused. See `BUILD_PLAN.md` for the full plan and `TASK_DIVISION.md` for
+> the track split.
 
 ## Stack
 
@@ -39,7 +40,8 @@ Requires Python 3.12+ and [uv](https://docs.astral.sh/uv/).
 cd backend
 uv sync
 cp .env.example .env
-# → fill DATABASE_URL (Supabase pooler string) and JWT_SECRET
+# → fill DATABASE_URL (Supabase pooler string), JWT_SECRET, and CREDENTIAL_ENCRYPTION_KEY
+#   (generate: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())")
 ```
 
 In the Supabase SQL editor, once per project:
@@ -71,8 +73,11 @@ DB-backed tests run only when `TEST_DATABASE_URL` is set; everything else runs o
 - [`docs/README.md`](docs/README.md) — documentation index (start here)
 - [`docs/api/auth.md`](docs/api/auth.md) — auth endpoint reference for the frontend
 - [`docs/api/conventions.md`](docs/api/conventions.md) — auth header, errors, money, IDs, CORS
+- [`docs/api/orders.md`](docs/api/orders.md) — dashboard orders
+- [`docs/api/conversations.md`](docs/api/conversations.md) — visitor threads, handoff, inbox
+- [`docs/api/payments.md`](docs/api/payments.md) — PayPal setup, webhooks, payment links
 - [`docs/contracts/openapi.json`](docs/contracts/openapi.json) — generated REST surface
-- [`docs/contracts/sse.md`](docs/contracts/sse.md) — chat streaming events
+- [`docs/contracts/sse.md`](docs/contracts/sse.md) — chat + inbox streaming events
 - [`docs/contracts/enums.md`](docs/contracts/enums.md) — status/role enums
 - [`docs/architecture.md`](docs/architecture.md) — backend internals
 - [`docs/status.md`](docs/status.md) — what's built / what's next

@@ -4,14 +4,24 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import IntegrityError
 
+from app.conversations.errors import ConversationError
 from app.orders.errors import OrderError
+from app.payments.errors import PaymentError
 
 logger = logging.getLogger(__name__)
 
 
 def register_error_handlers(app: FastAPI) -> None:
+    @app.exception_handler(ConversationError)
+    async def conversation_error_handler(request: Request, exc: ConversationError) -> JSONResponse:
+        return JSONResponse(status_code=exc.status_code, content={"detail": str(exc)})
+
     @app.exception_handler(OrderError)
     async def order_error_handler(request: Request, exc: OrderError) -> JSONResponse:
+        return JSONResponse(status_code=exc.status_code, content={"detail": str(exc)})
+
+    @app.exception_handler(PaymentError)
+    async def payment_error_handler(request: Request, exc: PaymentError) -> JSONResponse:
         return JSONResponse(status_code=exc.status_code, content={"detail": str(exc)})
 
     @app.exception_handler(IntegrityError)

@@ -51,6 +51,22 @@ The UI should switch on these exact strings.
 
 `agent` · `webhook` · `staff` · `system`
 
+## Payment action result — `payment_actions.result`
+
+| Value | Meaning |
+|---|---|
+| `success` | Action applied (link created, capture marked paid, refund recorded) |
+| `declined` | PayPal reported a declined/failed capture; order unchanged |
+| `ignored` | Event applied to nothing (unknown order, already-paid order, non-actionable event) |
+| `failed` | Reserved for dispatch failures |
+
+## System message kind — `messages.meta.kind`
+
+| Value | Meaning |
+|---|---|
+| `handoff` | Handoff requested / owner joined / returned to AI / closed |
+| `payment` | Payment received or declined notice |
+
 ## Channel — `conversations.channel`
 
 `web` (v1). Backlog: `whatsapp`, `instagram`, `voice`.

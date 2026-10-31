@@ -23,7 +23,11 @@ def _settings_out(user: CurrentUserDep) -> SettingsOut:
         refund_cap=merchant.refund_cap,
         recovery_reminder_enabled=merchant.recovery_reminder_enabled,
         recovery_timeout_minutes=merchant.recovery_timeout_minutes,
-        paypal_connected=bool(merchant.paypal_client_id_enc and merchant.paypal_secret_enc),
+        paypal_connected=bool(
+            merchant.paypal_client_id_enc
+            and merchant.paypal_secret_enc
+            and merchant.paypal_webhook_id_enc
+        ),
         chat_link=_chat_link(merchant.slug),
     )
 

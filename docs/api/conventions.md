@@ -15,8 +15,10 @@ Authorization: Bearer <access_token>
 - It is a JWT signed with `HS256`; expiry defaults to 24h (`JWT_EXPIRY_MINUTES`).
 - No refresh token yet (planned in Phase 6 — the UI should handle a 401 by sending the user to
   login).
-- Public endpoints (chat, webhooks, health) never require the header. Their paths are marked
-  `public` in the OpenAPI file / docs.
+- Public merchant endpoints (store meta, PayPal webhooks, health) never require the header.
+- Public chat thread endpoints are authenticated with the **visitor token** issued once when the
+  thread is created: `Authorization: Bearer <visitor_token>`. See
+  [`conversations.md`](conversations.md).
 
 ## Error format
 
@@ -41,10 +43,14 @@ Status codes used so far:
 | Code | Meaning |
 |---|---|
 | `200` | OK |
-| `201` | Created (register) |
+| `201` | Created (register, thread, message, order) |
+| `400` | Malformed webhook body or invalid PayPal signature |
 | `401` | Missing/invalid/expired token, or bad credentials |
-| `409` | Conflict (e.g. email already registered) |
+| `404` | Unknown resource, wrong visitor token, or another merchant's row |
+| `409` | Conflict (email exists, invalid status transition, product has orders) |
 | `422` | Request body/params failed validation |
+| `501` | Feature not configured (e.g. PayPal credentials missing) |
+| `502` | Upstream provider failure (PayPal API) |
 | `500` | Unhandled server error (generic message; details stay in server logs) |
 
 ## Identifiers
@@ -57,7 +63,7 @@ Status codes used so far:
 
 - Stored as Postgres `NUMERIC(12,2)`; serialized as **decimal strings** (`"25.00"`), never floats.
 - Currency is a 3-letter ISO code from the PayPal-supported allowlist (see
-  [`contracts/enums.md`](contracts/enums.md)). `NGN` is rejected in v1.
+  [`../contracts/enums.md`](../contracts/enums.md)). `NGN` is rejected in v1.
 - The UI must render amounts as returned; never do arithmetic on the client for order totals.
 
 ## Timestamps

@@ -1,0 +1,185 @@
+# Conversations API
+
+**Status:** Phase 2 foundation — complete (no AI turns yet). Visitor messages and AI replies arrive
+when the agent work resumes; the thread, handoff, owner inbox, and live streams are ready now.
+
+A conversation is one chat thread between a visitor and a merchant. Visitors do not have accounts:
+the backend returns a **visitor token once** when the thread is created and stores only its SHA-256
+hash. Every public request proves ownership with `Authorization: Bearer <visitor_token>`.
+
+Owner endpoints use the normal dashboard JWT and are scoped to the caller's merchant.
+
+## Status machine
+
+```
+ai ──(visitor handoff)──▶ handoff_requested ──(owner accepts)──▶ human_active
+ │                              │                                     │
+ │                              │                                     ├──(owner returns)──▶ ai
+ └──────────────(owner closes)──┴──────────────(owner closes)─────────┴──(owner closes)──▶ closed
+```
+
+- `closed` is terminal.
+- `handoff_requested` is set by the visitor's “Talk to a human” action (later also by the handoff
+  classifier).
+- Only the owner can move a thread to `human_active`, back to `ai`, or to `closed`.
+- Owner replies are only accepted while the thread is `human_active` (`409` otherwise).
+
+## Public endpoints (visitor)
+
+### `POST /public/chat/{slug}/conversations`
+
+Creates a customer record + conversation for the store. Body is optional:
+
+```json
+{"name": "Ada", "contact": "ada@example.com"}
+```
+
+`201` response — **store `visitor_token` now; it cannot be fetched again**:
+
+```json
+{
+  "conversation_id": "8b0e…",
+  "visitor_token": "hM3…",
+  "status": "ai",
+  "started_at": "2026-10-30T13:00:00Z"
+}
+```
+
+Unknown store slug → `404`.
+
+### `GET /public/conversations/{conversation_id}/messages`
+
+Headers: `Authorization: Bearer <visitor_token>`.
+
+Query: `limit` (1–100, default 50), `offset` (default 0). Oldest first.
+
+```json
+{
+  "items": [
+    {
+      "id": "e2c1…",
+      "role": "system",
+      "content": "A human has been requested.",
+      "meta": {"kind": "handoff"},
+      "created_at": "2026-10-30T13:01:00Z"
+    }
+  ],
+  "total": 1,
+  "limit": 50,
+  "offset": 0
+}
+```
+
+- Missing token → `401`.
+- Wrong token or unknown conversation → `404` (same response, so IDs cannot be enumerated).
+
+### `POST /public/conversations/{conversation_id}/handoff`
+
+Headers: `Authorization: Bearer <visitor_token>`. Body is optional:
+
+```json
+{"reason": "I need help with a delivery"}
+```
+
+Returns the conversation summary. Idempotent while `handoff_requested`; a no-op if a human is
+already active; `409` when the thread is `closed`.
+
+### `GET /public/conversations/{conversation_id}/stream`
+
+Server-Sent Events. Headers: `Authorization: Bearer <visitor_token>`.
+
+Because native `EventSource` cannot send an `Authorization` header, use a streaming `fetch()` and
+parse the response body. See [`../contracts/sse.md`](../contracts/sse.md).
+
+## Owner endpoints (dashboard)
+
+All require `Authorization: Bearer <jwt>` and only touch the caller's merchant.
+
+### `GET /conversations`
+
+Query: `status` (`ai` | `handoff_requested` | `human_active` | `closed`), `limit` (1–100, default
+50), `offset` (default 0). Newest started first.
+
+```json
+{
+  "items": [
+    {
+      "id": "8b0e…",
+      "status": "handoff_requested",
+      "channel": "web",
+      "customer_name": "Ada",
+      "customer_contact": "ada@example.com",
+      "handoff_reason": "I need help with a delivery",
+      "last_message_at": "2026-10-30T13:01:00Z",
+      "started_at": "2026-10-30T13:00:00Z"
+    }
+  ],
+  "total": 1,
+  "limit": 50,
+  "offset": 0
+}
+```
+
+### `GET /conversations/{conversation_id}`
+
+Conversation summary plus:
+
+| Field | Notes |
+|---|---|
+| `customer_id` | UUID or `null` |
+| `summary` | Reserved for the AI conversation summary (currently `null`) |
+| `latest_order_id` | Most recent order linked to this thread, or `null` |
+
+### `GET /conversations/{conversation_id}/messages`
+
+Same shape/pagination as the public endpoint. Useful for the inbox detail pane.
+
+### `POST /conversations/{conversation_id}/accept`
+
+`handoff_requested → human_active`. Adds a system message (“The owner joined the chat.”) and emits
+a live update. `409` for any other current status.
+
+### `POST /conversations/{conversation_id}/messages`
+
+Staff reply. **Only allowed while `human_active`.** Body:
+
+```json
+{"content": "Hi Ada — checking with the courier now."}
+```
+
+`201` with the created message. `409` if the thread is not `human_active`; `422` for empty/overlong
+content.
+
+### `POST /conversations/{conversation_id}/return-to-ai`
+
+`human_active → ai`. Adds a system message and emits a live update. `409` otherwise.
+
+### `POST /conversations/{conversation_id}/close`
+
+Any non-closed status → `closed`. Adds a system message and emits a live update. `409` if already
+closed.
+
+### `GET /conversations/stream`
+
+Server-Sent Events for the whole inbox (all of the merchant's conversations). Requires the JWT;
+use streaming `fetch()`. Events are `message` and `conversation_update` — see
+[`../contracts/sse.md`](../contracts/sse.md).
+
+## Message roles
+
+| Role | Meaning |
+|---|---|
+| `customer` | Visitor text (no public write endpoint yet) |
+| `agent` | AI reply (no AI yet) |
+| `staff` | Owner reply |
+| `system` | Handoff/payment notices generated by the backend |
+| `tool` | Reserved for agent tool records |
+
+## Errors
+
+| Status | When |
+|---|---|
+| `401` | Missing/invalid JWT, or missing visitor token |
+| `404` | Unknown conversation/store, wrong visitor token, or another merchant's conversation |
+| `409` | Invalid status transition (e.g. staff reply while `ai`, handoff on `closed`) |
+| `422` | Invalid query/body (unknown status filter, empty reply) |

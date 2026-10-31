@@ -207,7 +207,8 @@ saving only stores the markdown.
 | `recovery_timeout_minutes` | 15–10080 |
 | `recovery_reminder_enabled` | boolean |
 
-`paypal_connected` is read-only (becomes true in Phase 4 when credentials are saved).
+`paypal_connected` is read-only: true only when the merchant's PayPal client ID, secret, and webhook
+ID are all saved (see [`payments.md`](payments.md)).
 
 ---
 

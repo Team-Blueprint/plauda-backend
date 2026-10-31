@@ -419,8 +419,8 @@ Each phase ends with a demo-able "done when". Tasks are checkboxes; tests named 
       re-injection into system prompt
 - [ ] Recommendation behavior (preferences/budget → catalogue SQL query strategy)
 - [ ] SSE tool-status chips in chat UI; live order summary card
-- [ ] Handoff: trigger A (phrases + button) + trigger B (classifier turn); conversation mode
-      suppression; inbox with accept/reply/close/return-to-AI (staff SSE to customer thread)
+- [x] Handoff: visitor button + conversation state machine + inbox accept/reply/close/return-to-AI
+      + staff/visitor SSE — backend done; phrase/classifier triggers wait for the AI phase
 - [ ] "No staff available" honest-response path
 - [ ] State-machine tests: `create_payment_link` unreachable before confirm; double-add variants
       validated; handoff always honored mid-order
@@ -428,16 +428,18 @@ Each phase ends with a demo-able "done when". Tasks are checkboxes; tests named 
   human" transfers to the dashboard inbox and back, in one thread.
 
 ### Phase 4 — PayPal checkout & confirmation
-- [ ] PayPal sandbox app; per-merchant credentials form (encrypted) + connection health check
-- [ ] `PaymentProvider` interface + PayPal adapter: create order, get capture details, refund
-- [ ] `create_payment_link` tool → approval link in chat; checkout-result routes
-- [ ] Webhook endpoint: signature verification, `event_id` idempotency, state dispatch
+- [x] Per-merchant credentials API (encrypted) + connection health check — dashboard form is frontend
+- [x] PayPal adapter: create order, get order, capture, refund, webhook signature verification
+- [ ] `create_payment_link` tool → approval link in chat; checkout-result routes — internal service
+      is ready; agent tool waits for the AI phase
+- [x] Webhook endpoint: signature verification, `event_id` idempotency, state dispatch
       (§6.3), receipt system message, dashboard sale logging
-- [ ] `payment_actions` audit on every money-touching path
-- [ ] Webhook tests: forged signature rejected; replayed event no-ops; capture-completed marks
+- [x] `payment_actions` audit on every money-touching path
+- [x] Webhook tests: forged signature rejected; replayed event no-ops; capture-completed marks
       paid exactly once; declined capture notifies buyer
-- Done when: sandbox purchase end-to-end — link in chat → approve → webhook → order paid →
-  receipt in chat → sale on dashboard; replaying the webhook changes nothing.
+- [ ] Done when: sandbox purchase end-to-end — link in chat → approve → webhook → order paid →
+      receipt in chat → sale on dashboard; replaying the webhook changes nothing. **Blocked on
+      sandbox credentials.**
 
 ### Phase 5 — Recovery & operations
 - [ ] Procrastinate worker setup (polling mode vs Supabase) + cron: reminder (max 1, toggle,

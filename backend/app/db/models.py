@@ -36,6 +36,7 @@ class Merchant(Base):
 
     paypal_client_id_enc: Mapped[str | None] = mapped_column(Text)
     paypal_secret_enc: Mapped[str | None] = mapped_column(Text)
+    paypal_webhook_id_enc: Mapped[str | None] = mapped_column(Text)
     paypal_env: Mapped[str | None] = mapped_column(String(16))
 
     recovery_reminder_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
@@ -207,9 +208,13 @@ class Order(Base):
     merchant_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("merchants.id", ondelete="CASCADE"), nullable=False
     )
-    # FK constraints are added when the conversations/customers tables land (Phase 2).
-    conversation_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
-    customer_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    # Links to the chat thread / visitor. Both survive thread deletion as NULL.
+    conversation_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("conversations.id", ondelete="SET NULL")
+    )
+    customer_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("customers.id", ondelete="SET NULL")
+    )
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="draft")
     currency: Mapped[str] = mapped_column(String(3), nullable=False)
     subtotal: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
@@ -270,3 +275,155 @@ class OrderItem(Base):
     @property
     def line_total(self) -> Decimal:
         return (self.unit_price * self.qty).quantize(Decimal("0.01"))
+
+
+class Customer(Base):
+    """Minimal visitor record. No accounts or login in v1."""
+
+    __tablename__ = "customers"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    merchant_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("merchants.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    name: Mapped[str | None] = mapped_column(String(200))
+    contact: Mapped[str | None] = mapped_column(String(320))
+    notes: Mapped[str] = mapped_column(Text, nullable=False, default="")
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+
+class Conversation(Base):
+    """A chat thread. The visitor proves ownership with a hashed bearer token."""
+
+    __tablename__ = "conversations"
+    __table_args__ = (
+        CheckConstraint("channel IN ('web')", name="ck_conversations_channel"),
+        CheckConstraint(
+            "status IN ('ai', 'handoff_requested', 'human_active', 'closed')",
+            name="ck_conversations_status",
+        ),
+        Index("ix_conversations_merchant_status", "merchant_id", "status"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    merchant_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("merchants.id", ondelete="CASCADE"), nullable=False
+    )
+    customer_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("customers.id", ondelete="SET NULL")
+    )
+    channel: Mapped[str] = mapped_column(String(16), nullable=False, default="web")
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="ai")
+    # SHA-256 of the visitor token — the raw token is only returned when the thread is created.
+    visitor_token_hash: Mapped[str | None] = mapped_column(String(64), unique=True, index=True)
+    handoff_reason: Mapped[str | None] = mapped_column(String(500))
+    summary: Mapped[str | None] = mapped_column(Text)
+
+    started_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    last_message_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+    customer: Mapped[Customer | None] = relationship(lazy="selectin")
+
+    @property
+    def customer_name(self) -> str | None:
+        return self.customer.name if self.customer is not None else None
+
+    @property
+    def customer_contact(self) -> str | None:
+        return self.customer.contact if self.customer is not None else None
+
+
+class Message(Base):
+    __tablename__ = "messages"
+    __table_args__ = (
+        CheckConstraint(
+            "role IN ('customer', 'agent', 'staff', 'system', 'tool')",
+            name="ck_messages_role",
+        ),
+        Index("ix_messages_conversation_created", "conversation_id", "created_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    conversation_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("conversations.id", ondelete="CASCADE"), nullable=False
+    )
+    role: Mapped[str] = mapped_column(String(16), nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    meta: Mapped[dict] = mapped_column(
+        JSONB, nullable=False, default=dict, server_default=text("'{}'::jsonb")
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class PayPalWebhookEvent(Base):
+    """Idempotency ledger for PayPal webhooks. ``event_id`` is unique."""
+
+    __tablename__ = "paypal_webhook_events"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    event_id: Mapped[str] = mapped_column(String(128), unique=True, index=True, nullable=False)
+    merchant_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("merchants.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    event_type: Mapped[str] = mapped_column(String(80), nullable=False)
+    resource_id: Mapped[str | None] = mapped_column(String(128))
+    payload: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    signature_verified: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    processed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class PaymentAction(Base):
+    """Audit row for every money-touching action."""
+
+    __tablename__ = "payment_actions"
+    __table_args__ = (
+        CheckConstraint(
+            "action IN ('create_link', 'refund', 'mark_paid', 'receipt', 'expire')",
+            name="ck_payment_actions_action",
+        ),
+        CheckConstraint(
+            "trigger IN ('agent', 'webhook', 'staff', 'system')",
+            name="ck_payment_actions_trigger",
+        ),
+        Index("ix_payment_actions_order_created", "order_id", "created_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    merchant_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("merchants.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    order_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("orders.id", ondelete="CASCADE"), nullable=False
+    )
+    action: Mapped[str] = mapped_column(String(16), nullable=False)
+    trigger: Mapped[str] = mapped_column(String(16), nullable=False)
+    amount: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
+    result: Mapped[str] = mapped_column(String(32), nullable=False, default="success")
+    detail: Mapped[dict] = mapped_column(
+        JSONB, nullable=False, default=dict, server_default=text("'{}'::jsonb")
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )

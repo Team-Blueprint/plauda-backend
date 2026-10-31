@@ -1,7 +1,7 @@
 # Backend architecture
 
-> Phases 0–1 and the non-AI parts of Phase 3 (orders foundation) are implemented. Chat, RAG,
-> agent, and payments land in later phases — see `status.md`.
+> Phases 0–1, the non-AI parts of Phase 3 (orders foundation), the conversations/SSE foundation,
+> and the PayPal backend layer are implemented. AI/agent/RAG work is paused — see `status.md`.
 
 ## Stack
 
@@ -30,12 +30,12 @@ backend/
 │   │   ├── base.py        DeclarativeBase
 │   │   ├── engine.py      engine factory + Supabase URL normalization (SSL, pooler)
 │   │   ├── session.py     async session factory + get_session dependency
-│   │   └── models.py      SQLAlchemy models (merchants, users, catalogue, orders)
-│   └── auth/
+│   │   └── models.py      SQLAlchemy models (merchants, users, catalogue, orders, chat, payments)
+│   ├── auth/
 │       ├── routes.py      /auth/register, /auth/login, /auth/me
 │       ├── schemas.py     request/response models
 │       └── security.py    bcrypt hashing + JWT encode/decode
-│   └── merchants/
+│   ├── merchants/
 │       ├── catalogue.py   products + variants CRUD + image upload
 │       ├── zones.py       delivery zones CRUD
 │       ├── business_info.py  markdown docs (about/policies/faq)
@@ -44,19 +44,38 @@ backend/
 │       ├── storage.py     Supabase Storage adapter (bucket/upload/delete)
 │       ├── schemas.py     Phase 1 request/response models
 │       └── constants.py   PayPal currencies, image rules, info sources
-│   └── orders/
+│   ├── orders/
 │       ├── routes.py      dashboard orders list/detail/cancel/fulfill
 │       ├── service.py     order creation, item/delivery mutations, totals recomputation
 │       ├── state_machine.py  statuses + allowed transitions (paid = webhook only)
 │       ├── schemas.py     order response models
 │       └── errors.py      domain errors mapped to HTTP by app/errors.py
+│   ├── conversations/
+│       ├── routes_public.py   visitor thread create/history/handoff/stream
+│       ├── routes_inbox.py    owner inbox list/detail/reply/accept/return/close/stream
+│       ├── service.py         thread lifecycle, messages, status transitions
+│       ├── state_machine.py   ai → handoff_requested → human_active → closed
+│       ├── sse.py             in-process pub/sub hub + SSE frame helpers
+│       ├── tokens.py          visitor token generation + SHA-256 hashing
+│       ├── deps.py            visitor bearer-token dependency
+│       ├── schemas.py         conversation/message models
+│       └── errors.py          domain errors mapped to HTTP by app/errors.py
+│   └── payments/
+│       ├── routes.py          /settings/paypal + /webhooks/paypal
+│       ├── service.py         create_payment_link_for_order (agent tool later)
+│       ├── webhooks.py        signature check, event-id idempotency, dispatch
+│       ├── crypto.py          Fernet encrypt/decrypt for merchant credentials
+│       ├── audit.py           payment_actions writer
+│       ├── schemas.py         PayPal setup/status models
+│       ├── errors.py          domain errors mapped to HTTP by app/errors.py
+│       └── paypal/client.py   Orders v2 + webhook verification adapter (httpx)
 ├── alembic/               async migrations
 ├── scripts/export_openapi.py
 └── tests/
 ```
 
-Later phases add sibling packages: `rag/`, `agent/`, `payments/`, `conversations/`, `workers/` —
-exactly as laid out in `BUILD_PLAN.md` §10.
+Later phases add sibling packages: `rag/`, `agent/`, `workers/` — exactly as laid out in
+`BUILD_PLAN.md` §10.
 
 ## Request lifecycle
 
@@ -91,7 +110,7 @@ endpoint receives a fully-typed `User`. Errors are raised as `HTTPException` and
 | `slug` | varchar(120) unique | public chat link key |
 | `currency` | varchar(3) | default `USD`; PayPal allowlist enforced in Phase 1 |
 | `settings` | jsonb | free-form merchant settings (default `{}`) |
-| `paypal_client_id_enc` / `paypal_secret_enc` | text | encrypted creds (Phase 4) |
+| `paypal_client_id_enc` / `paypal_secret_enc` / `paypal_webhook_id_enc` | text | encrypted creds (Phase 4) |
 | `paypal_env` | varchar(16) | `sandbox` / `live` (Phase 4) |
 | `recovery_reminder_enabled` | boolean | default true (Phase 5) |
 | `recovery_timeout_minutes` | int | default 120 (Phase 5) |
@@ -165,7 +184,7 @@ Raw markdown lives here; Phase 1 AI chunks it into `knowledge_chunks` (not built
 |---|---|---|
 | `id` | UUID PK | |
 | `merchant_id` | UUID FK → merchants, cascade delete | composite index `(merchant_id, status)` |
-| `conversation_id` / `customer_id` | UUID null | FKs added when those tables land (Phase 2) |
+| `conversation_id` / `customer_id` | UUID null | FK → conversations/customers, set null on delete |
 | `status` | varchar(20) | check constraint, see state machine below |
 | `currency` | varchar(3) | copied from the merchant at draft creation |
 | `subtotal` / `delivery_fee` / `total` | numeric(12,2) null | written only by the order service |
@@ -192,6 +211,72 @@ Partial index `(merchant_id) WHERE status = 'pending_payment'` for the recovery 
 
 The dashboard cannot delete a product with order history (`409`) — deactivate it instead.
 
+### `customers`
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | UUID PK | |
+| `merchant_id` | UUID FK → merchants, cascade delete | indexed |
+| `name` / `contact` | varchar(200) / varchar(320) null | optional visitor-provided identity |
+| `notes` | text | default `""` (owner notes, reserved) |
+| `created_at` / `updated_at` | timestamptz | |
+
+No accounts or login in v1 — a customer row is created with each new thread.
+
+### `conversations`
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | UUID PK | |
+| `merchant_id` | UUID FK → merchants, cascade delete | index `(merchant_id, status)` |
+| `customer_id` | UUID FK → customers, set null on delete | |
+| `channel` | varchar(16) | `web` only (check constraint) |
+| `status` | varchar(20) | `ai` / `handoff_requested` / `human_active` / `closed` |
+| `visitor_token_hash` | varchar(64) unique | SHA-256 of the raw visitor token; raw token is returned once |
+| `handoff_reason` | varchar(500) null | visitor's optional note |
+| `summary` | text null | reserved for the AI summary |
+| `started_at` / `last_message_at` | timestamptz | |
+| `created_at` / `updated_at` | timestamptz | |
+
+### `messages`
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | UUID PK | |
+| `conversation_id` | UUID FK → conversations, cascade delete | index `(conversation_id, created_at)` |
+| `role` | varchar(16) | `customer` / `agent` / `staff` / `system` / `tool` |
+| `content` | text | |
+| `meta` | jsonb | `{"kind": "handoff"\|"payment", "event_id": "…"}` etc. |
+| `created_at` | timestamptz | |
+
+### `paypal_webhook_events`
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | UUID PK | |
+| `event_id` | varchar(128) unique | PayPal event ID — idempotency key |
+| `merchant_id` | UUID FK → merchants, cascade delete | indexed |
+| `event_type` | varchar(80) | e.g. `PAYMENT.CAPTURE.COMPLETED` |
+| `resource_id` | varchar(128) null | capture/order/refund ID |
+| `payload` | jsonb | full webhook body |
+| `signature_verified` | boolean | true once accepted |
+| `processed_at` | timestamptz null | null = retryable failure |
+| `created_at` | timestamptz | |
+
+### `payment_actions`
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | UUID PK | |
+| `merchant_id` | UUID FK → merchants, cascade delete | indexed |
+| `order_id` | UUID FK → orders, cascade delete | index `(order_id, created_at)` |
+| `action` | varchar(16) | `create_link` / `refund` / `mark_paid` / `receipt` / `expire` |
+| `trigger` | varchar(16) | `agent` / `webhook` / `staff` / `system` |
+| `amount` | numeric(12,2) null | money moved/requested |
+| `result` | varchar(32) | `success` / `declined` / `ignored` / `failed` |
+| `detail` | jsonb | PayPal IDs, capture IDs, event IDs |
+| `created_at` | timestamptz | |
+
 ## Orders & the money invariant
 
 - `app/orders/service.py` is the only writer of totals and status transitions.
@@ -201,6 +286,47 @@ The dashboard cannot delete a product with order history (`409`) — deactivate 
 - `paid` is written by the verified PayPal webhook only (`ensure_transition` rejects every other
   trigger). Owner API exposes only `cancel` and `fulfill`.
 - `fulfilled` requires `paid`; `cancelled` requires pre-payment; terminal states never transition.
+
+## Conversations & SSE
+
+- A visitor gets a raw token **once** at thread creation; the DB stores only its SHA-256 hash.
+  Public endpoints require `Authorization: Bearer <visitor_token>`.
+- Missing token → `401`; wrong token/unknown thread → `404` (same response — no enumeration).
+- Owner endpoints are tenant-scoped and enforce the status machine. Staff replies are only allowed
+  while `human_active`; handoff is visitor-triggered; accept/return/close are owner-only.
+- `app/conversations/sse.py` is an in-process asyncio pub/sub hub with two channel kinds:
+  `("conversation", id)` for the visitor and `("merchant", merchant_id)` for the inbox. Single API
+  process only; if the API is scaled out, swap the transport for Postgres `LISTEN/NOTIFY` without
+  changing the event contract.
+- Streams are `GET /public/conversations/{id}/stream` and `GET /conversations/stream`. The frontend
+  must use streaming `fetch()` because `EventSource` cannot send an `Authorization` header.
+- Events: `message` (persisted message) and `conversation_update` (status/customer summary), plus
+  keepalive comments. See `docs/contracts/sse.md`.
+- SSE endpoints authenticate with a short-lived DB session and do not hold a connection for the
+  lifetime of the stream.
+
+## PayPal payments
+
+- Merchant credentials (client ID, secret, webhook ID, env) are encrypted with Fernet using
+  `CREDENTIAL_ENCRYPTION_KEY`; the API never returns them.
+- `POST /settings/paypal` verifies the credentials with PayPal OAuth before saving.
+- Webhook URL: `{APP_BASE_URL}/webhooks/paypal/{merchant_id}`. Authenticity is checked with PayPal's
+  `verify-webhook-signature` API using the merchant's webhook ID (client credentials alone are not
+  enough).
+- `paypal_webhook_events.event_id` is the idempotency key: the row is committed **before** dispatch,
+  duplicates are acknowledged as ignored, and failed dispatches leave `processed_at` null so PayPal
+  can retry.
+- `PAYMENT.CAPTURE.COMPLETED` is the only path that marks an order `paid`; it calls the order
+  service's webhook-only transition and writes a `payment_actions` audit row. A receipt system
+  message is posted once per event into the linked conversation. Captured amount/currency must
+  match the order; mismatches are audited and ignored.
+- `CHECKOUT.ORDER.APPROVED` captures the approved order server-side (PayPal's documented
+  server-side trigger); the order stays `pending_payment` until `capture.completed` arrives.
+- `create_payment_link_for_order` is the internal service the future `create_payment_link` agent
+  tool calls. It requires a `confirmed` order, creates a PayPal Orders v2 order with
+  `intent=CAPTURE`, and moves the order to `pending_payment` with the approval link and expiry.
+- Refund adapter + refund-webhook audit exist; the owner-facing refund endpoint and over-cap
+  approval are Phase 5.
 
 ## Supabase specifics
 
@@ -229,22 +355,28 @@ The dashboard cannot delete a product with order history (`409`) — deactivate 
 
 All settings live in `app/config.py` and are loaded from environment / `backend/.env`
 (template: `backend/.env.example`). Notable keys: `DATABASE_URL`, `JWT_SECRET`,
-`JWT_EXPIRY_MINUTES`, `CORS_ORIGINS` (JSON list), `LOG_LEVEL`, and Phase 1+ placeholders
-(`EMBEDDING_PROVIDER`, `GROQ_API_KEY`, PayPal keys, `CREDENTIAL_ENCRYPTION_KEY`).
+`JWT_EXPIRY_MINUTES`, `CORS_ORIGINS` (JSON list), `LOG_LEVEL`, `CREDENTIAL_ENCRYPTION_KEY`
+(required to store PayPal credentials — losing it makes stored credentials undecryptable), and
+Phase 1+ placeholders (`EMBEDDING_PROVIDER`, `GROQ_API_KEY`, global PayPal keys).
 
 ## Logging & errors
 
 - JSON-per-line logging to stdout (`app/logging.py`), level via `LOG_LEVEL`.
 - `IntegrityError` → `409 {"detail": "Resource already exists"}`.
-- Order domain errors (`app/orders/errors.py`) map to `404` / `409` / `422` with their message.
+- Order domain errors (`app/orders/errors.py`), conversation errors
+  (`app/conversations/errors.py`), and payment errors (`app/payments/errors.py`) map to `400` /
+  `404` / `409` / `422` / `501` / `502` with their message.
 - Unhandled exceptions → logged with traceback, client sees `500 {"detail": "Internal server error"}`.
 
 ## Testing
 
-- `uv run pytest -q` — unit tests (security, healthz) run offline.
-- DB-backed tests (`tests/test_auth_api.py`) run only when `TEST_DATABASE_URL` is set; they create
-  the schema with `metadata.create_all` and clean up rows marked `@plauda-test.com` /
+- `uv run pytest -q` — unit tests (security, healthz, SSE hub, crypto, PayPal adapter with
+  `httpx.MockTransport`) run offline.
+- DB-backed tests (`tests/test_auth_api.py`, `test_catalogue_api.py`, `test_orders.py`,
+  `test_conversations_api.py`, `test_payments.py`) run only when `TEST_DATABASE_URL` is set; they
+  create the schema with `metadata.create_all` and clean up rows marked `@plauda-test.com` /
   slug prefix `pytest-`.
+- The suite round-trips to Supabase and takes ~30 minutes.
 - CI (`.github/workflows/ci.yml`): `ruff check`, `ruff format --check`, `pytest`.
 
 ## Conventions

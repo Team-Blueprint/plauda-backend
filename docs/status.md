@@ -1,6 +1,6 @@
 # Build status
 
-Last updated: 2026-10-29
+Last updated: 2026-10-31
 
 ## Phase 0 — Foundations (backend) — ✅ complete
 
@@ -12,7 +12,7 @@ Last updated: 2026-10-29
 | Alembic wired (async) + migration `0001` (merchants, users) | ✅ |
 | JWT auth: `POST /auth/register`, `POST /auth/login`, `GET /auth/me` (bcrypt + jose) | ✅ |
 | CORS, `/healthz`, JSON structured logging, error handlers | ✅ |
-| Tests: security units, healthz, auth API | ✅ 9 pass (against real Supabase) |
+| Tests: security units, healthz, auth API | ✅ |
 | CI: ruff + format check + pytest | ✅ |
 | Contracts for frontend: `openapi.json`, `sse.md`, `enums.md`, API guides | ✅ |
 | Migration `0001` applied to Supabase | ✅ |
@@ -36,14 +36,23 @@ health check green. — ✅ **All verified.**
 | Public store meta `GET /public/chat/{slug}/meta` (no auth) | ✅ |
 | Product image upload → Supabase Storage (`POST/DELETE /products/{id}/images`) | ✅ live-verified |
 | Migration `0002` (products, variants, zones, business info, pg_trgm) | ✅ |
-| Tests: catalogue, variants, zones, business info, settings, public meta, storage | ✅ 31 pass |
+| Tests: catalogue, variants, zones, business info, settings, public meta, storage | ✅ |
 | **AI: chunker, embedders (CF/Ollama/Gemini), hybrid retrieval** | ⏸ paused by request |
 | Procrastinate worker setup | ⏸ deferred until worker tasks (AI) begin |
 
-> Test suite currently takes ~10–15 min because every request round-trips to Supabase. A local
-> Postgres for tests can speed this up later (not required).
+## Phase 2 — Grounded chat / conversations — 🔨 conversation foundation done, AI paused
 
-## Phase 2 — Grounded chat — ⏸ not started
+| Task | Status |
+|---|---|
+| Migration `0004`: `customers`, `conversations`, `messages`, order FKs | ✅ applied |
+| Visitor thread creation (`POST /public/chat/{slug}/conversations`) | ✅ |
+| Visitor token: returned raw once, SHA-256 hash stored, bearer auth | ✅ |
+| Public history + handoff button endpoints | ✅ |
+| Owner inbox: list/detail/history/accept/reply/return-to-ai/close | ✅ |
+| Conversation status machine (`ai → handoff_requested → human_active → closed`, `human_active → ai`) | ✅ |
+| In-process SSE hub + visitor/inbox streams (`message`, `conversation_update`) | ✅ |
+| Tests: token isolation, handoff lifecycle, tenant scoping, pagination, order link, SSE hub | ✅ 9 pass |
+| **Visitor message endpoint, AI turns, handoff classifier, streaming turn events** | ⏸ paused by request |
 
 ## Phase 3 — Ordering & handoff — 🔨 order backend done, AI paused
 
@@ -51,23 +60,45 @@ health check green. — ✅ **All verified.**
 |---|---|
 | Order draft model + state machine (`draft → confirmed`, totals recomputed server-side) | ✅ |
 | Orders API: `GET /orders`, `GET /orders/{id}`, `POST /orders/{id}/cancel`, `POST /orders/{id}/fulfill` | ✅ |
-| `paid` webhook-only invariant + `pending_payment`/`paid`/`fulfill`/`expire` service paths | ✅ (webhook wiring in Phase 4) |
+| `paid` webhook-only invariant + `pending_payment`/`paid`/`fulfill`/`expire` service paths | ✅ |
 | Product delete guard for order history (`409`) | ✅ |
 | Migration `0003` (orders, order_items, status check, recovery index) | ✅ applied |
-| Tests: state machine, totals recomputation, merge, lifecycle, tenant scoping | ✅ 10 pass (41 total) |
+| Tests: state machine, totals recomputation, merge, lifecycle, tenant scoping | ✅ 10 pass |
 | **PydanticAI agent + tool registry + state-gated tools** | ⏸ paused by request |
-| **Conversations, SSE, handoff/inbox** | ⏸ paused (needs chat/AI approval) |
+| **Order tools wired into chat (`create_payment_link`, etc.)** | ⏸ paused by request |
 
-## Phase 4 — PayPal — ⏸ not started
+## Phase 4 — PayPal — 🔨 backend done, live verification blocked
+
+| Task | Status |
+|---|---|
+| Migration `0005`: `paypal_webhook_events`, `payment_actions`, `merchants.paypal_webhook_id_enc` | ✅ applied |
+| Fernet credential encryption (`CREDENTIAL_ENCRYPTION_KEY`) | ✅ |
+| `GET/POST/DELETE /settings/paypal` + OAuth credential health check | ✅ |
+| Orders v2 adapter: create/get/capture/refund (httpx, no SDK) | ✅ mock-tested |
+| Webhook endpoint: signature verification + `event_id` idempotency + audit ledger | ✅ mock-tested |
+| `CHECKOUT.ORDER.APPROVED` → server-side capture (retry-safe) | ✅ mock-tested |
+| `PAYMENT.CAPTURE.COMPLETED` → `paid` + audit + chat receipt | ✅ mock-tested |
+| Declined capture handling (buyer notice) + refund webhook audit | ✅ declined mock-tested |
+| Internal `create_payment_link_for_order` service | ✅ mock-tested |
+| Tests: crypto, adapter, settings, webhook idempotency/rejection, declined notice, link creation | ✅ 17 pass |
+| **Live sandbox payment + webhook verification** | ⏳ blocked on sandbox credentials |
+| **Owner refund endpoint + over-cap approval** | ⏸ Phase 5 |
 
 ## Phase 5 — Recovery & operations — ⏸ not started
 
 ## Phase 6 — Failover & hardening — ⏸ not started
 
+## Test suite
+
+Full backend suite: **67 tests** (offline units + Supabase-backed API tests). Runtime ~30 min
+because every DB test round-trips to Supabase.
+
 ## Open items
 
 | Item | Owner | Notes |
 |---|---|---|
+| PayPal sandbox credentials | You | Client ID, secret, webhook ID — needed for live verification |
+| Public HTTPS URL for webhooks | You (dev) | `APP_BASE_URL/webhooks/paypal/{merchant_id}`; ngrok is fine in dev |
 | Frontend repo/location | Frontend dev | Contracts in `docs/contracts/` are ready |
 | Domain for `plauda.app` links | You | Open question in BUILD_PLAN §16 |
 | AI start approval | You | Paused until you say go |

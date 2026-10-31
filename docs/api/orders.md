@@ -86,6 +86,7 @@ Full order:
 | Field | Notes |
 |---|---|
 | `status`, `currency` | See above |
+| `conversation_id`, `customer_id` | Links to the chat thread / visitor, or `null` |
 | `subtotal`, `delivery_fee`, `total` | Null until confirmed |
 | `delivery_details` | `{zone_id, zone_name, fee, eta_days, address}` — null until set |
 | `paypal_order_id`, `approval_link` | Set when payment is requested |
@@ -107,5 +108,8 @@ Owner action. Allowed from `paid` only. Returns the updated order. `409` otherwi
 
 ## Not built yet
 
-- `POST /orders/{id}/refund` and over-cap approval — Phase 4/5 (PayPal).
+- `POST /orders/{id}/refund` and over-cap approval — Phase 5 (the PayPal refund adapter + webhook
+  audit already exist).
 - Creating orders from the dashboard — orders originate in chat (agent tools, paused with AI).
+- The `create_payment_link` agent tool — the internal payment service is ready; see
+  [`payments.md`](payments.md).
