@@ -96,7 +96,7 @@ Responses:
   audited and ignored (the order stays `pending_payment`).
 - Amounts come from the order service, never from the webhook payload or the client.
 - Every money action writes a `payment_actions` row (`action`, `trigger`, `amount`, `result`,
-  `detail`).
+  `detail`). Read the trail with `GET /audit` — see [`dashboard.md`](dashboard.md).
 - A paid order posts one system message into its conversation (deduplicated by `event_id`).
 
 ## Creating a payment link

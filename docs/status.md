@@ -1,6 +1,6 @@
 # Build status
 
-Last updated: 2026-10-31
+Last updated: 2026-11-02
 
 ## Phase 0 — Foundations (backend) — ✅ complete
 
@@ -85,13 +85,22 @@ health check green. — ✅ **All verified.**
 | **Live sandbox payment + webhook verification** | ✅ paid 2026-11-02; capture `1EA58572KJ470073T` completed for USD 10.00; webhook signatures verified |
 | **Owner refund endpoint + over-cap approval** | ⏸ Phase 5 |
 
-## Phase 5 — Recovery & operations — ⏸ not started
+## Phase 5 — Recovery & operations — 🔨 dashboard + audit done, recovery paused
+
+| Task | Status |
+|---|---|
+| Orders list/detail + conversation history APIs | ✅ earlier phases |
+| `GET /dashboard/summary`: today's revenue, orders, live chats | ✅ 2 tests |
+| `GET /audit`: filtered, paginated payment audit trail | ✅ 2 tests |
+| Owner refund endpoint + over-cap approval | ⏸ next |
+| Recovery worker + reminder/expiry jobs | ⏸ paused by request |
+| Reminder tests: exactly one reminder then expiry; toggle off = silence | ⏸ paused |
 
 ## Phase 6 — Failover & hardening — ⏸ not started
 
 ## Test suite
 
-Full backend suite: **70 tests** (offline units + Supabase-backed API tests). Runtime ~22–30 min
+Full backend suite: **74 tests** (offline units + Supabase-backed API tests). Runtime ~22–30 min
 because every DB test round-trips to Supabase.
 
 ## Open items
@@ -104,4 +113,5 @@ because every DB test round-trips to Supabase.
 | Frontend repo/location | Frontend dev | Contracts in `docs/contracts/` are ready |
 | Domain for `plauda.app` links | You | Open question in BUILD_PLAN §16 |
 | AI start approval | You | Paused until you say go |
+| Recovery worker | You | Paused by request; dashboard + audit are done |
 | Rotate Supabase DB password | You (optional) | The dev connection string was shared in chat; it is only in gitignored `.env` |

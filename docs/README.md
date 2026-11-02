@@ -11,6 +11,7 @@ Start here, then open the file for your task.
 | [`api/orders.md`](api/orders.md) | Orders list/detail, status machine, totals, payment link, cancel & fulfill | Frontend |
 | [`api/conversations.md`](api/conversations.md) | Visitor threads/messages, handoff, owner inbox, live streams | Frontend |
 | [`api/payments.md`](api/payments.md) | PayPal setup, webhooks, payment links, audit | Frontend + backend |
+| [`api/dashboard.md`](api/dashboard.md) | Revenue/order/chat summary and paginated payment audit trail | Frontend |
 | [`contracts/openapi.json`](contracts/openapi.json) | Machine-readable REST surface (generated from the app) | Frontend (codegen) |
 | [`contracts/sse.md`](contracts/sse.md) | Live conversation/inbox events + the future chat turn stream (`delta`, `tool_status`, `order_update`, `system`, `error`, `done`) | Frontend (chat + inbox) |
 | [`contracts/enums.md`](contracts/enums.md) | Canonical status/role strings used by API + UI | Frontend + backend |

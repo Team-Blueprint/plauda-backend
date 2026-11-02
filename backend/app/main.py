@@ -8,6 +8,7 @@ from app.auth.routes import router as auth_router
 from app.config import get_settings
 from app.conversations.routes_inbox import router as inbox_router
 from app.conversations.routes_public import router as public_chat_router
+from app.dashboard.routes import audit_router, summary_router
 from app.db.engine import get_engine
 from app.errors import register_error_handlers
 from app.logging import configure_logging
@@ -49,6 +50,8 @@ def create_app() -> FastAPI:
     app.include_router(orders_router)
     app.include_router(public_chat_router)
     app.include_router(inbox_router)
+    app.include_router(summary_router)
+    app.include_router(audit_router)
     app.include_router(paypal_settings_router)
     app.include_router(paypal_webhook_router)
 

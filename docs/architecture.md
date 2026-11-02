@@ -1,8 +1,9 @@
 # Backend architecture
 
 > Phases 0–1, the non-AI parts of Phase 3 (orders foundation + owner payment-link endpoint), the
-> conversations/SSE foundation (including visitor messages), and the PayPal backend layer are
-> implemented. AI/agent/RAG work is paused — see `status.md`.
+> conversations/SSE foundation (including visitor messages), the PayPal backend layer, and the
+> Phase 5 dashboard summary + payment audit endpoints are implemented. AI/agent/RAG work and the
+> recovery worker are paused — see `status.md`.
 
 ## Stack
 
@@ -61,6 +62,10 @@ backend/
 │       ├── deps.py            visitor bearer-token dependency
 │       ├── schemas.py         conversation/message models
 │       └── errors.py          domain errors mapped to HTTP by app/errors.py
+│   ├── dashboard/
+│       ├── routes.py          /dashboard/summary + /audit
+│       ├── service.py         aggregate revenue/order/chat queries + audit pagination
+│       └── schemas.py         summary/audit response models
 │   └── payments/
 │       ├── routes.py          /settings/paypal + /webhooks/paypal
 │       ├── service.py         create_payment_link_for_order (agent tool later)
@@ -305,6 +310,16 @@ No accounts or login in v1 — a customer row is created with each new thread.
   keepalive comments. See `docs/contracts/sse.md`.
 - SSE endpoints authenticate with a short-lived DB session and do not hold a connection for the
   lifetime of the stream.
+
+## Dashboard & audit
+
+- `GET /dashboard/summary` uses one conditional-aggregate query for orders and one for
+  conversations. The day window is UTC midnight to midnight; paid revenue is based on `paid_at`,
+  while `orders_today` is based on `created_at`.
+- `GET /audit` reads `payment_actions` joined to the owning order for currency/status context.
+  It is tenant-scoped, newest-first, filterable by order/action/trigger/result/time, and paginated.
+- Audit rows are append-only. The endpoint never mutates money state; refund and recovery work
+  will add rows through the same `record_action` helper.
 
 ## PayPal payments
 

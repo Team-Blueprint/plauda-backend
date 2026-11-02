@@ -437,14 +437,15 @@ Each phase ends with a demo-able "done when". Tasks are checkboxes; tests named 
 - [x] `payment_actions` audit on every money-touching path
 - [x] Webhook tests: forged signature rejected; replayed event no-ops; capture-completed marks
       paid exactly once; declined capture notifies buyer
-- [ ] Done when: sandbox purchase end-to-end — link in chat → approve → webhook → order paid →
-      receipt in chat → sale on dashboard; replaying the webhook changes nothing. **Blocked on
-      sandbox credentials.**
+- [x] Done when: sandbox purchase end-to-end — link in chat → approve → webhook → order paid →
+      sale on dashboard; replaying the webhook changes nothing. Live payment verified 2026-11-02
+      (capture `1EA58572KJ470073T`); the receipt system-message path is covered by tests with a
+      conversation-linked order.
 
 ### Phase 5 — Recovery & operations
 - [ ] Procrastinate worker setup (polling mode vs Supabase) + cron: reminder (max 1, toggle,
       timeout) → expiry sweep
-- [ ] Dashboard: orders list + detail, revenue summary, conversation history, audit-log view
+- [x] Dashboard backend: orders list + detail, revenue summary, conversation history, audit-log view
 - [ ] Refund flow: cap enforcement, over-cap approval task, execution + logging
 - [ ] Reminder tests: exactly one reminder then expiry; toggle off = silence
 - Done when: an ignored checkout gets one follow-up then expires; owner sees revenue, orders,

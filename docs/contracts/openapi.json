@@ -2063,6 +2063,211 @@
         }
       }
     },
+    "/dashboard/summary": {
+      "get": {
+        "tags": [
+          "dashboard"
+        ],
+        "summary": "Get Dashboard Summary",
+        "operationId": "get_dashboard_summary_dashboard_summary_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardSummaryOut"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/audit": {
+      "get": {
+        "tags": [
+          "audit"
+        ],
+        "summary": "List Audit",
+        "operationId": "list_audit_audit_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "order_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Order Id"
+            }
+          },
+          {
+            "name": "action",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "create_link",
+                    "refund",
+                    "mark_paid",
+                    "receipt",
+                    "expire"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Action"
+            }
+          },
+          {
+            "name": "trigger",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "agent",
+                    "webhook",
+                    "staff",
+                    "system"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Trigger"
+            }
+          },
+          {
+            "name": "result",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "success",
+                    "declined",
+                    "ignored",
+                    "failed"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Result"
+            }
+          },
+          {
+            "name": "since",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Since"
+            }
+          },
+          {
+            "name": "until",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Until"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuditListOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/settings/paypal": {
       "get": {
         "tags": [
@@ -2221,6 +2426,37 @@
   },
   "components": {
     "schemas": {
+      "AuditListOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PaymentActionOut"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "AuditListOut"
+      },
       "Body_upload_product_image_products__product_id__images_post": {
         "properties": {
           "file": {
@@ -2564,6 +2800,71 @@
           "started_at"
         ],
         "title": "ConversationSummaryOut"
+      },
+      "DashboardSummaryOut": {
+        "properties": {
+          "as_of": {
+            "type": "string",
+            "format": "date-time",
+            "title": "As Of"
+          },
+          "day_start": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Day Start"
+          },
+          "currency": {
+            "type": "string",
+            "title": "Currency"
+          },
+          "revenue_today": {
+            "type": "string",
+            "title": "Revenue Today"
+          },
+          "orders_today": {
+            "type": "integer",
+            "title": "Orders Today"
+          },
+          "paid_orders_today": {
+            "type": "integer",
+            "title": "Paid Orders Today"
+          },
+          "pending_payment_orders": {
+            "type": "integer",
+            "title": "Pending Payment Orders"
+          },
+          "live_chats": {
+            "type": "integer",
+            "title": "Live Chats"
+          },
+          "handoff_requests": {
+            "type": "integer",
+            "title": "Handoff Requests"
+          },
+          "total_revenue": {
+            "type": "string",
+            "title": "Total Revenue"
+          },
+          "total_orders": {
+            "type": "integer",
+            "title": "Total Orders"
+          }
+        },
+        "type": "object",
+        "required": [
+          "as_of",
+          "day_start",
+          "currency",
+          "revenue_today",
+          "orders_today",
+          "paid_orders_today",
+          "pending_payment_orders",
+          "live_chats",
+          "handoff_requests",
+          "total_revenue",
+          "total_orders"
+        ],
+        "title": "DashboardSummaryOut"
       },
       "HTTPValidationError": {
         "properties": {
@@ -3106,6 +3407,94 @@
           "env"
         ],
         "title": "PayPalStatusOut"
+      },
+      "PaymentActionOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "order_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Order Id"
+          },
+          "order_status": {
+            "type": "string",
+            "title": "Order Status"
+          },
+          "currency": {
+            "type": "string",
+            "title": "Currency"
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "create_link",
+              "refund",
+              "mark_paid",
+              "receipt",
+              "expire"
+            ],
+            "title": "Action"
+          },
+          "trigger": {
+            "type": "string",
+            "enum": [
+              "agent",
+              "webhook",
+              "staff",
+              "system"
+            ],
+            "title": "Trigger"
+          },
+          "amount": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amount"
+          },
+          "result": {
+            "type": "string",
+            "enum": [
+              "success",
+              "declined",
+              "ignored",
+              "failed"
+            ],
+            "title": "Result"
+          },
+          "detail": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Detail"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "order_id",
+          "order_status",
+          "currency",
+          "action",
+          "trigger",
+          "amount",
+          "result",
+          "detail",
+          "created_at"
+        ],
+        "title": "PaymentActionOut"
       },
       "ProductCreate": {
         "properties": {
