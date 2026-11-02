@@ -1,8 +1,8 @@
 # PayPal payments
 
-**Status:** Phase 4 backend — complete. Sandbox credentials are connected and webhook delivery +
-signature verification have been confirmed; the full buyer-approval purchase is the remaining
-verification step.
+**Status:** Phase 4 complete. A live sandbox purchase was approved, captured, and confirmed by
+webhook on 2026-11-02 (`USD 10.00`, capture `1EA58572KJ470073T`); the order moved to `paid`.
+Webhook signatures and idempotency are verified.
 
 Plauda never touches card data: buyers approve payment on PayPal, and the **verified webhook** is
 the only path that marks an order `paid`.
@@ -141,9 +141,8 @@ store currency is validated at settings/catalogue setup; orders inherit it at dr
 - Adapter tests use `httpx.MockTransport` (no network) for OAuth, order creation, and signature
   verification.
 - Webhook/API tests use a fake client and the real Supabase test database.
-- Live verification checklist: connect → create a sandbox buyer payment → confirm webhook
-  receipt → order becomes `paid`. Webhook delivery and signature verification are already
-  confirmed with a PayPal simulated event.
+- Live verification: connect → create a sandbox buyer payment → confirm webhook receipt → order
+  becomes `paid`. Verified 2026-11-02 with a completed sandbox capture.
 
 ### Sandbox verification runbook
 

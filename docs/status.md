@@ -67,7 +67,7 @@ health check green. — ✅ **All verified.**
 | **PydanticAI agent + tool registry + state-gated tools** | ⏸ paused by request |
 | **Order tools wired into chat (`create_payment_link`, etc.)** | ⏸ paused by request |
 
-## Phase 4 — PayPal — 🔨 backend complete, sandbox purchase pending
+## Phase 4 — PayPal — ✅ complete
 
 | Task | Status |
 |---|---|
@@ -82,7 +82,7 @@ health check green. — ✅ **All verified.**
 | Internal `create_payment_link_for_order` service | ✅ mock-tested |
 | Owner `POST /orders/{id}/payment-link` (idempotent, tenant-scoped) | ✅ 3 tests |
 | Tests: crypto, adapter, settings, webhook idempotency/rejection, declined notice, link creation | ✅ 20 pass |
-| **Live sandbox payment + webhook verification** | 🟡 webhook delivery + signature verified; buyer-approval purchase pending |
+| **Live sandbox payment + webhook verification** | ✅ paid 2026-11-02; capture `1EA58572KJ470073T` completed for USD 10.00; webhook signatures verified |
 | **Owner refund endpoint + over-cap approval** | ⏸ Phase 5 |
 
 ## Phase 5 — Recovery & operations — ⏸ not started
@@ -91,7 +91,7 @@ health check green. — ✅ **All verified.**
 
 ## Test suite
 
-Full backend suite: **70 tests** (offline units + Supabase-backed API tests). Runtime ~30 min
+Full backend suite: **70 tests** (offline units + Supabase-backed API tests). Runtime ~22–30 min
 because every DB test round-trips to Supabase.
 
 ## Open items
