@@ -1,7 +1,8 @@
 # Backend architecture
 
-> Phases 0–1, the non-AI parts of Phase 3 (orders foundation), the conversations/SSE foundation,
-> and the PayPal backend layer are implemented. AI/agent/RAG work is paused — see `status.md`.
+> Phases 0–1, the non-AI parts of Phase 3 (orders foundation + owner payment-link endpoint), the
+> conversations/SSE foundation (including visitor messages), and the PayPal backend layer are
+> implemented. AI/agent/RAG work is paused — see `status.md`.
 
 ## Stack
 
@@ -45,13 +46,13 @@ backend/
 │       ├── schemas.py     Phase 1 request/response models
 │       └── constants.py   PayPal currencies, image rules, info sources
 │   ├── orders/
-│       ├── routes.py      dashboard orders list/detail/cancel/fulfill
+│       ├── routes.py      dashboard orders list/detail/payment-link/cancel/fulfill
 │       ├── service.py     order creation, item/delivery mutations, totals recomputation
 │       ├── state_machine.py  statuses + allowed transitions (paid = webhook only)
 │       ├── schemas.py     order response models
 │       └── errors.py      domain errors mapped to HTTP by app/errors.py
 │   ├── conversations/
-│       ├── routes_public.py   visitor thread create/history/handoff/stream
+│       ├── routes_public.py   visitor thread create/history/message/handoff/stream
 │       ├── routes_inbox.py    owner inbox list/detail/reply/accept/return/close/stream
 │       ├── service.py         thread lifecycle, messages, status transitions
 │       ├── state_machine.py   ai → handoff_requested → human_active → closed

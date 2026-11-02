@@ -1193,6 +1193,55 @@
         }
       }
     },
+    "/orders/{order_id}/payment-link": {
+      "post": {
+        "tags": [
+          "orders"
+        ],
+        "summary": "Create Order Payment Link",
+        "description": "Create the PayPal approval link for a confirmed order.\n\nIdempotent while the order is pending payment: repeated calls return the existing link\ninstead of creating another PayPal order.",
+        "operationId": "create_order_payment_link_orders__order_id__payment_link_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "order_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Order Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/orders/{order_id}/cancel": {
       "post": {
         "tags": [
@@ -1402,6 +1451,62 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/MessageListOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "public-chat"
+        ],
+        "summary": "Public Send Message",
+        "operationId": "public_send_message_public_conversations__conversation_id__messages_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "conversation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Conversation Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VisitorMessageIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageOut"
                 }
               }
             }
@@ -3621,6 +3726,21 @@
         },
         "type": "object",
         "title": "VariantUpdate"
+      },
+      "VisitorMessageIn": {
+        "properties": {
+          "content": {
+            "type": "string",
+            "maxLength": 10000,
+            "minLength": 1,
+            "title": "Content"
+          }
+        },
+        "type": "object",
+        "required": [
+          "content"
+        ],
+        "title": "VisitorMessageIn"
       },
       "ZoneCreate": {
         "properties": {

@@ -8,8 +8,8 @@ Start here, then open the file for your task.
 | [`api/conventions.md`](api/conventions.md) | Base URL, auth header, error format, IDs, money, timestamps, CORS | Frontend |
 | [`api/auth.md`](api/auth.md) | Register / login / me — full request & response reference | Frontend |
 | [`api/merchant-api.md`](api/merchant-api.md) | Products, variants, delivery zones, business info, settings, public store meta | Frontend |
-| [`api/orders.md`](api/orders.md) | Orders list/detail, status machine, totals, cancel & fulfill | Frontend |
-| [`api/conversations.md`](api/conversations.md) | Visitor threads, handoff, owner inbox, live streams | Frontend |
+| [`api/orders.md`](api/orders.md) | Orders list/detail, status machine, totals, payment link, cancel & fulfill | Frontend |
+| [`api/conversations.md`](api/conversations.md) | Visitor threads/messages, handoff, owner inbox, live streams | Frontend |
 | [`api/payments.md`](api/payments.md) | PayPal setup, webhooks, payment links, audit | Frontend + backend |
 | [`contracts/openapi.json`](contracts/openapi.json) | Machine-readable REST surface (generated from the app) | Frontend (codegen) |
 | [`contracts/sse.md`](contracts/sse.md) | Live conversation/inbox events + the future chat turn stream (`delta`, `tool_status`, `order_update`, `system`, `error`, `done`) | Frontend (chat + inbox) |

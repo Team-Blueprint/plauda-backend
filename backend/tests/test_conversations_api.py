@@ -38,9 +38,30 @@ async def test_public_conversation_start_and_token_isolation(db_client, merchant
     assert resp.status_code == 200
     assert resp.json()["items"] == []
 
-    # Token A cannot read conversation B.
+    resp = await db_client.post(
+        f"/public/conversations/{first['conversation_id']}/messages",
+        json={"content": "Do you deliver on Sundays?"},
+        headers=visitor,
+    )
+    assert resp.status_code == 201, resp.text
+    assert resp.json()["role"] == "customer"
+    assert resp.json()["content"] == "Do you deliver on Sundays?"
+
+    resp = await db_client.get(
+        f"/public/conversations/{first['conversation_id']}/messages", headers=visitor
+    )
+    assert [message["role"] for message in resp.json()["items"]] == ["customer"]
+
+    # Token A cannot read or write conversation B.
     resp = await db_client.get(
         f"/public/conversations/{second['conversation_id']}/messages", headers=visitor
+    )
+    assert resp.status_code == 404
+
+    resp = await db_client.post(
+        f"/public/conversations/{second['conversation_id']}/messages",
+        json={"content": "not mine"},
+        headers=visitor,
     )
     assert resp.status_code == 404
 
@@ -112,6 +133,13 @@ async def test_handoff_accept_reply_return_close(db_client, merchant_auth):
         f"/conversations/{conversation_id}/messages",
         json={"content": "late reply"},
         headers=headers,
+    )
+    assert resp.status_code == 409
+
+    resp = await db_client.post(
+        f"/public/conversations/{conversation_id}/messages",
+        json={"content": "late customer reply"},
+        headers=visitor,
     )
     assert resp.status_code == 409
 

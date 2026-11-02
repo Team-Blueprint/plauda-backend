@@ -24,6 +24,7 @@ from app.payments.errors import (
     PayPalNotConfiguredError,
 )
 from app.payments.paypal.client import PayPalClient, extract_approval_link
+from tests.conftest import register_merchant
 
 
 @pytest.fixture
@@ -528,8 +529,10 @@ async def test_webhook_requires_paypal_credentials(db_client, merchant_auth):
 class _FakeCreateClient:
     def __init__(self) -> None:
         self.kwargs: dict | None = None
+        self.calls = 0
 
     async def create_order(self, **kwargs) -> dict:
+        self.calls += 1
         self.kwargs = kwargs
         return {
             "id": "PAYPAL-2",
@@ -563,3 +566,48 @@ async def test_create_payment_link_requires_credentials(db_client, db_session, m
     order = await _confirmed_order(db_client, db_session, merchant_auth)
     with pytest.raises(PayPalNotConfiguredError):
         await payment_service.create_payment_link_for_order(db_session, order)
+
+
+async def test_owner_payment_link_endpoint_is_idempotent(
+    db_client, db_session, merchant_auth, monkeypatch
+):
+    order = await _confirmed_order(db_client, db_session, merchant_auth)
+    fake = _FakeCreateClient()
+    monkeypatch.setattr("app.payments.service.client_for_merchant", lambda merchant: fake)
+    headers = merchant_auth["headers"]
+
+    first = await db_client.post(f"/orders/{order.id}/payment-link", headers=headers)
+    assert first.status_code == 200, first.text
+    assert first.json()["status"] == "pending_payment"
+    assert first.json()["paypal_order_id"] == "PAYPAL-2"
+    assert first.json()["approval_link"] == "https://paypal.example/approve/2"
+    assert first.json()["expires_at"] is not None
+
+    second = await db_client.post(f"/orders/{order.id}/payment-link", headers=headers)
+    assert second.status_code == 200, second.text
+    assert second.json()["approval_link"] == "https://paypal.example/approve/2"
+    assert fake.calls == 1
+
+    action = await db_session.scalar(
+        select(PaymentAction).where(PaymentAction.order_id == order.id)
+    )
+    assert action.action == "create_link"
+    assert action.trigger == "staff"
+
+
+async def test_payment_link_requires_confirmed_order(db_client, db_session, merchant_auth):
+    merchant_id = uuid.UUID(merchant_auth["merchant"]["id"])
+    order = await order_service.create_draft(db_session, merchant_id=merchant_id)
+
+    resp = await db_client.post(
+        f"/orders/{order.id}/payment-link", headers=merchant_auth["headers"]
+    )
+    assert resp.status_code == 409
+
+
+async def test_payment_link_is_tenant_scoped(db_client, db_session, merchant_auth):
+    order = await _confirmed_order(db_client, db_session, merchant_auth)
+    other = await register_merchant(db_client)
+
+    resp = await db_client.post(f"/orders/{order.id}/payment-link", headers=other["headers"])
+    assert resp.status_code == 404

@@ -66,5 +66,9 @@ class ConversationOut(ConversationSummaryOut):
     latest_order_id: uuid.UUID | None = None
 
 
+class VisitorMessageIn(BaseModel):
+    content: str = Field(min_length=1, max_length=10_000)
+
+
 class StaffMessageIn(BaseModel):
     content: str = Field(min_length=1, max_length=10_000)

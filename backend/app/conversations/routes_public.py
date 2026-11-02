@@ -13,6 +13,8 @@ from app.conversations.schemas import (
     ConversationOut,
     HandoffIn,
     MessageListOut,
+    MessageOut,
+    VisitorMessageIn,
 )
 from app.conversations.sse import CONVERSATION_CHANNEL, SSE_HEADERS, stream_events
 from app.conversations.tokens import token_matches
@@ -60,6 +62,20 @@ async def public_messages(
 ) -> MessageListOut:
     items, total = await service.list_messages(session, conversation.id, limit=limit, offset=offset)
     return MessageListOut(items=items, total=total, limit=limit, offset=offset)
+
+
+@router.post(
+    "/conversations/{conversation_id}/messages",
+    response_model=MessageOut,
+    status_code=status.HTTP_201_CREATED,
+)
+async def public_send_message(
+    conversation: VisitorConversationDep,
+    payload: VisitorMessageIn,
+    session: SessionDep,
+) -> MessageOut:
+    message = await service.add_customer_message(session, conversation, payload.content)
+    return MessageOut.model_validate(message)
 
 
 @router.post("/conversations/{conversation_id}/handoff", response_model=ConversationOut)

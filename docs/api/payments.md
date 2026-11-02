@@ -1,7 +1,8 @@
 # PayPal payments
 
-**Status:** Phase 4 backend — complete with mocked PayPal calls. Live sandbox verification is
-pending merchant sandbox credentials (client ID, secret, webhook ID).
+**Status:** Phase 4 backend — complete. Sandbox credentials are connected and webhook delivery +
+signature verification have been confirmed; the full buyer-approval purchase is the remaining
+verification step.
 
 Plauda never touches card data: buyers approve payment on PayPal, and the **verified webhook** is
 the only path that marks an order `paid`.
@@ -100,9 +101,12 @@ Responses:
 
 ## Creating a payment link
 
-The internal service is `app/payments/service.py::create_payment_link_for_order`. The future
-`create_payment_link` agent tool calls it (with `trigger="agent"`); there is no public HTTP route
-for creating links yet.
+Owner endpoint:
+
+```http
+POST /orders/{order_id}/payment-link
+Authorization: Bearer <owner JWT>
+```
 
 Rules:
 
@@ -110,8 +114,16 @@ Rules:
 - The backend creates a PayPal Orders v2 order with `intent=CAPTURE` and the server-owned total.
 - On success the order moves to `pending_payment` with `paypal_order_id`, `approval_link`, and
   `expires_at` (merchant recovery timeout).
-- The approval link is what the chat shows to the buyer.
+- The endpoint is idempotent while the order is `pending_payment`: it returns the existing link
+  instead of creating another PayPal order.
+- The approval link is what the chat/dashboard shows to the buyer.
 - Return/cancel URLs default to `{FRONTEND_BASE_URL}/checkout/result?order_id=…`.
+- The endpoint never marks an order paid; the verified capture webhook remains the only writer of
+  `paid`.
+
+The underlying service is `app/payments/service.py::create_payment_link_for_order`. The future
+`create_payment_link` agent tool will call the same service with `trigger="agent"`; the owner
+endpoint uses `trigger="staff"`.
 
 ## Refunds
 
@@ -129,5 +141,22 @@ store currency is validated at settings/catalogue setup; orders inherit it at dr
 - Adapter tests use `httpx.MockTransport` (no network) for OAuth, order creation, and signature
   verification.
 - Webhook/API tests use a fake client and the real Supabase test database.
-- Live verification checklist once credentials exist: connect → create a sandbox buyer payment →
-  confirm webhook receipt → order becomes `paid`.
+- Live verification checklist: connect → create a sandbox buyer payment → confirm webhook
+  receipt → order becomes `paid`. Webhook delivery and signature verification are already
+  confirmed with a PayPal simulated event.
+
+### Sandbox verification runbook
+
+1. Create a product, delivery zone, and confirmed order for the merchant.
+2. Call `POST /orders/{id}/payment-link` with the owner JWT.
+3. Open the returned `approval_link` and sign in with a **PayPal sandbox personal/buyer** account.
+4. Approve the payment.
+5. Verify:
+   - `CHECKOUT.ORDER.APPROVED` captured the PayPal order server-side.
+   - `PAYMENT.CAPTURE.COMPLETED` moved the order to `paid`.
+   - A receipt system message exists in the conversation.
+   - Replaying the same webhook returns `{"status":"ignored","reason":"duplicate"}`.
+6. Confirm the capture amount/currency match the Plauda order.
+
+Until AI order-building ships, step 1 uses the backend order service directly (there is no
+dashboard order-create endpoint).

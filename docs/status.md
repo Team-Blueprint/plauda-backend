@@ -47,12 +47,12 @@ health check green. — ✅ **All verified.**
 | Migration `0004`: `customers`, `conversations`, `messages`, order FKs | ✅ applied |
 | Visitor thread creation (`POST /public/chat/{slug}/conversations`) | ✅ |
 | Visitor token: returned raw once, SHA-256 hash stored, bearer auth | ✅ |
-| Public history + handoff button endpoints | ✅ |
+| Public history + visitor message + handoff button endpoints | ✅ |
 | Owner inbox: list/detail/history/accept/reply/return-to-ai/close | ✅ |
 | Conversation status machine (`ai → handoff_requested → human_active → closed`, `human_active → ai`) | ✅ |
 | In-process SSE hub + visitor/inbox streams (`message`, `conversation_update`) | ✅ |
 | Tests: token isolation, handoff lifecycle, tenant scoping, pagination, order link, SSE hub | ✅ 9 pass |
-| **Visitor message endpoint, AI turns, handoff classifier, streaming turn events** | ⏸ paused by request |
+| **AI turns, handoff classifier, streaming turn events** | ⏸ paused by request |
 
 ## Phase 3 — Ordering & handoff — 🔨 order backend done, AI paused
 
@@ -67,7 +67,7 @@ health check green. — ✅ **All verified.**
 | **PydanticAI agent + tool registry + state-gated tools** | ⏸ paused by request |
 | **Order tools wired into chat (`create_payment_link`, etc.)** | ⏸ paused by request |
 
-## Phase 4 — PayPal — 🔨 backend done, live verification blocked
+## Phase 4 — PayPal — 🔨 backend complete, sandbox purchase pending
 
 | Task | Status |
 |---|---|
@@ -80,8 +80,9 @@ health check green. — ✅ **All verified.**
 | `PAYMENT.CAPTURE.COMPLETED` → `paid` + audit + chat receipt | ✅ mock-tested |
 | Declined capture handling (buyer notice) + refund webhook audit | ✅ declined mock-tested |
 | Internal `create_payment_link_for_order` service | ✅ mock-tested |
-| Tests: crypto, adapter, settings, webhook idempotency/rejection, declined notice, link creation | ✅ 17 pass |
-| **Live sandbox payment + webhook verification** | ⏳ blocked on sandbox credentials |
+| Owner `POST /orders/{id}/payment-link` (idempotent, tenant-scoped) | ✅ 3 tests |
+| Tests: crypto, adapter, settings, webhook idempotency/rejection, declined notice, link creation | ✅ 20 pass |
+| **Live sandbox payment + webhook verification** | 🟡 webhook delivery + signature verified; buyer-approval purchase pending |
 | **Owner refund endpoint + over-cap approval** | ⏸ Phase 5 |
 
 ## Phase 5 — Recovery & operations — ⏸ not started
@@ -90,15 +91,16 @@ health check green. — ✅ **All verified.**
 
 ## Test suite
 
-Full backend suite: **67 tests** (offline units + Supabase-backed API tests). Runtime ~30 min
+Full backend suite: **70 tests** (offline units + Supabase-backed API tests). Runtime ~30 min
 because every DB test round-trips to Supabase.
 
 ## Open items
 
 | Item | Owner | Notes |
 |---|---|---|
-| PayPal sandbox credentials | You | Client ID, secret, webhook ID — needed for live verification |
-| Public HTTPS URL for webhooks | You (dev) | `APP_BASE_URL/webhooks/paypal/{merchant_id}`; ngrok is fine in dev |
+| PayPal sandbox credentials | ✅ connected | New sandbox app + webhook stored for `plauda-store`; rotate the secret after testing |
+| PayPal sandbox buyer account | ✅ ready | Sandbox personal/buyer login available for the checkout test |
+| Public HTTPS URL for webhooks | ✅ ngrok verified | `APP_BASE_URL/webhooks/paypal/{merchant_id}`; update PayPal if the tunnel URL changes |
 | Frontend repo/location | Frontend dev | Contracts in `docs/contracts/` are ready |
 | Domain for `plauda.app` links | You | Open question in BUILD_PLAN §16 |
 | AI start approval | You | Paused until you say go |

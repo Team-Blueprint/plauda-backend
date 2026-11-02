@@ -106,10 +106,42 @@ Owner action. Allowed from `draft`, `confirmed`, or `pending_payment`. Returns t
 
 Owner action. Allowed from `paid` only. Returns the updated order. `409` otherwise.
 
+## `POST /orders/{id}/payment-link`
+
+Owner action. Creates a PayPal Orders v2 checkout for a **confirmed** order and returns the updated
+order with `status: "pending_payment"`, `paypal_order_id`, `approval_link`, and `expires_at`.
+
+```json
+{
+  "id": "3f1c…",
+  "status": "pending_payment",
+  "currency": "USD",
+  "total": "60.50",
+  "paypal_order_id": "5O190127TN364715T",
+  "approval_link": "https://www.sandbox.paypal.com/checkoutnow?token=…",
+  "expires_at": "2026-11-01T19:00:00Z"
+}
+```
+
+Idempotent while the order is `pending_payment`: calling again returns the existing link instead of
+creating a second PayPal order.
+
+| Status | Meaning |
+|---|---|
+| `200` | Link created, or existing link returned |
+| `404` | Order not found or belongs to another merchant |
+| `409` | Order is not `confirmed` (including draft, paid, cancelled, expired) |
+| `422` | Order total is missing or not positive |
+| `501` | Merchant has not connected PayPal |
+| `502` | PayPal rejected or failed the order creation |
+
+The link is what the chat/dashboard shows to the buyer. Payment is still confirmed **only** by the
+verified `PAYMENT.CAPTURE.COMPLETED` webhook; this endpoint never marks an order paid.
+
 ## Not built yet
 
 - `POST /orders/{id}/refund` and over-cap approval — Phase 5 (the PayPal refund adapter + webhook
   audit already exist).
 - Creating orders from the dashboard — orders originate in chat (agent tools, paused with AI).
-- The `create_payment_link` agent tool — the internal payment service is ready; see
+- The `create_payment_link` agent tool — the owner endpoint and internal service are ready; see
   [`payments.md`](payments.md).

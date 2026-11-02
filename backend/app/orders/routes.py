@@ -8,6 +8,7 @@ from app.db.models import Order
 from app.deps import CurrentUserDep, SessionDep
 from app.orders import service
 from app.orders.schemas import OrderListOut, OrderOut, OrderStatus
+from app.payments.service import create_payment_link_for_order
 
 router = APIRouter(prefix="/orders", tags=["orders"])
 
@@ -38,6 +39,21 @@ async def list_orders(
 @router.get("/{order_id}", response_model=OrderOut)
 async def get_order(order_id: uuid.UUID, user: CurrentUserDep, session: SessionDep) -> Order:
     return await service.get_order(session, user.merchant_id, order_id)
+
+
+@router.post("/{order_id}/payment-link", response_model=OrderOut)
+async def create_order_payment_link(
+    order_id: uuid.UUID, user: CurrentUserDep, session: SessionDep
+) -> Order:
+    """Create the PayPal approval link for a confirmed order.
+
+    Idempotent while the order is pending payment: repeated calls return the existing link
+    instead of creating another PayPal order.
+    """
+    order = await service.get_order(session, user.merchant_id, order_id)
+    if order.status == "pending_payment" and order.approval_link:
+        return order
+    return await create_payment_link_for_order(session, order, trigger="staff")
 
 
 @router.post("/{order_id}/cancel", response_model=OrderOut)

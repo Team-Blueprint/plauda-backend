@@ -192,6 +192,14 @@ async def close_conversation(session: AsyncSession, conversation: Conversation) 
     return conversation
 
 
+async def add_customer_message(
+    session: AsyncSession, conversation: Conversation, content: str
+) -> Message:
+    if conversation.status == "closed":
+        raise ConversationConflictError("Conversation is closed")
+    return await add_message(session, conversation, role="customer", content=content)
+
+
 async def add_staff_message(
     session: AsyncSession, conversation: Conversation, content: str
 ) -> Message:
