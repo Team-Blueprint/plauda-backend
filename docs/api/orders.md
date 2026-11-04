@@ -1,8 +1,8 @@
 # Orders API (dashboard)
 
 **Status:** Phase 3 backend foundation — complete. Order creation is owned by the backend order
-service (agent tools will call it when AI work resumes); the dashboard reads orders and performs
-owner actions.
+service (the agent ordering tools will call it in the next slice); the dashboard reads orders and
+performs owner actions.
 
 All endpoints require `Authorization: Bearer <token>` and only return the caller's orders.
 

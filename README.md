@@ -4,10 +4,10 @@ Plauda gives every business an **AI employee**: it chats with customers from the
 approved information, recommends products, builds structured orders, sends a PayPal checkout,
 confirms payment from a verified webhook, and logs the sale to the owner's dashboard — 24/7.
 
-> Status: **Phase 5 backend + AI RAG foundation** — catalogue, orders, conversations/SSE,
-> PayPal, dashboard summary, payment audit, and the RAG retrieval foundation are built. The next
-> AI slice is the agent core; refunds and the recovery worker are paused. See `BUILD_PLAN.md` for
-> the full plan and `TASK_DIVISION.md` for the track split.
+> Status: **Phase 5 backend + AI agent core** — catalogue, orders, conversations/SSE, PayPal,
+> dashboard summary, payment audit, RAG retrieval, and streamed grounded chat turns are built. The
+> next AI slice is ordering tools; refunds and the recovery worker are paused. See `BUILD_PLAN.md`
+> for the full plan and `TASK_DIVISION.md` for the track split.
 
 ## Stack
 
@@ -15,7 +15,7 @@ confirms payment from a verified webhook, and logs the sale to the owner's dashb
 |---|---|
 | API | FastAPI · SQLAlchemy 2.0 async · Alembic · Pydantic v2 · uv |
 | DB | Supabase Postgres + pgvector |
-| Agent | PydanticAI (Groq `llama-3.3-70b-versatile`) |
+| Agent | PydanticAI (Groq `openai/gpt-oss-120b`) |
 | Embeddings | `bge-m3` — Cloudflare Workers AI (prod), Ollama (local dev), Gemini (backup) |
 | Jobs | Procrastinate (Postgres-backed) |
 | Payments | PayPal Orders v2 + webhooks |
@@ -43,6 +43,7 @@ uv sync
 cp .env.example .env
 # → fill DATABASE_URL (Supabase pooler string), JWT_SECRET, and CREDENTIAL_ENCRYPTION_KEY
 #   (generate: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())")
+#   Live chat turns also need GROQ_API_KEY; local RAG needs: ollama pull bge-m3
 ```
 
 In the Supabase SQL editor, once per project:

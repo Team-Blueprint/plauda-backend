@@ -1636,6 +1636,66 @@
         ]
       }
     },
+    "/public/chat/{slug}/messages": {
+      "post": {
+        "tags": [
+          "public-chat"
+        ],
+        "summary": "Public Chat Turn",
+        "description": "Persist a buyer message and stream one assistant turn over SSE.",
+        "operationId": "public_chat_turn_public_chat__slug__messages_post",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Slug"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChatTurnIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Agent turn SSE stream",
+            "content": {
+              "application/json": {
+                "schema": {}
+              },
+              "text/event-stream": {}
+            }
+          },
+          "503": {
+            "description": "AI assistant is not configured"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/conversations/stream": {
       "get": {
         "tags": [
@@ -2514,6 +2574,27 @@
           "content"
         ],
         "title": "BusinessInfoUpdate"
+      },
+      "ChatTurnIn": {
+        "properties": {
+          "conversation_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Conversation Id"
+          },
+          "content": {
+            "type": "string",
+            "maxLength": 10000,
+            "minLength": 1,
+            "title": "Content"
+          }
+        },
+        "type": "object",
+        "required": [
+          "conversation_id",
+          "content"
+        ],
+        "title": "ChatTurnIn"
       },
       "ConversationCreate": {
         "properties": {

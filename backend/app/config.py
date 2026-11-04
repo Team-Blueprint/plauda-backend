@@ -39,19 +39,19 @@ class Settings(BaseSettings):
     # CORS
     cors_origins: list[str] = ["http://localhost:5173"]
 
-    # Embeddings (Phase 1 — placeholders, not wired yet)
+    # Embeddings (Phase 1 — Cloudflare primary, Ollama local, Gemini backup)
     embedding_provider: str = "ollama_local"
     cf_account_id: str = ""
     cf_api_token: str = ""
     gemini_api_key: str = ""
     ollama_base_url: str = "http://localhost:11434"
 
-    # Agent LLM (Phase 2 — placeholders, not wired yet)
+    # Agent LLM (Phase 2 — Groq primary)
     groq_api_key: str = ""
-    groq_agent_model: str = "llama-3.3-70b-versatile"
-    groq_cheap_model: str = "llama-3.1-8b-instant"
+    groq_agent_model: str = "openai/gpt-oss-120b"
+    groq_cheap_model: str = "openai/gpt-oss-20b"
 
-    # PayPal (Phase 4 — placeholders, not wired yet)
+    # PayPal (Phase 4 — encrypted per-merchant REST app credentials)
     paypal_client_id: str = ""
     paypal_client_secret: str = ""
     paypal_env: str = "sandbox"

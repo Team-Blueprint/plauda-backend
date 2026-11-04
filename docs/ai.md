@@ -1,7 +1,9 @@
 # Plauda AI — architecture & implementation notes
 
-**Status:** Slice A (RAG foundation) is implemented and verified by the full backend suite
-(102 tests passed). Agent turns are queued next.
+**Status:** Slice A (RAG foundation) is implemented and verified. Slice B (agent core) is
+implemented, covered by 13 targeted tests, live-verified against Groq with a real catalogue tool
+call, and verified by the full backend suite (**115 tests passed**, 2026-11-04). Ordering tools are
+queued next.
 
 This document is the readable companion to the AI sections of
 [`BUILD_PLAN.md`](../BUILD_PLAN.md):
@@ -11,8 +13,10 @@ This document is the readable companion to the AI sections of
 - §6.4 / §6.6 — recovery and refund guardrails
 - §11 Phases 1–3 and 6 — build order and done criteria
 
-The detailed task plan for the first slice is in
-[`superpowers/plans/2026-11-02-ai-rag-foundation.md`](superpowers/plans/2026-11-02-ai-rag-foundation.md).
+The detailed task plans are:
+
+- [`superpowers/plans/2026-11-02-ai-rag-foundation.md`](superpowers/plans/2026-11-02-ai-rag-foundation.md) — Slice A
+- [`superpowers/plans/2026-11-04-ai-agent-core.md`](superpowers/plans/2026-11-04-ai-agent-core.md) — Slice B
 
 ## What the AI layer must do
 
@@ -28,13 +32,13 @@ The detailed task plan for the first slice is in
 | Slice | Deliverable |
 |---|---|
 | **A. RAG foundation** | ✅ `knowledge_chunks`, chunker, embedding adapters, reindex, hybrid retrieval |
-| **B. Agent core** | PydanticAI loop, prompt assembly, state-gated tool registry, TestModel tests |
-| **C. Chat integration** | streaming visitor turns, tool status, order-card events, handoff classifier |
-| **D. Ordering tools** | catalogue search, order draft operations, delivery, confirm, payment link |
+| **B. Agent core** | ✅ PydanticAI loop, grounding prompt, typed tools, TestModel tests |
+| **C. Chat integration** | 🔨 streamed visitor turns + tool status done; order cards, handoff classifier, rate limits next |
+| **D. Ordering tools** | catalogue search ✅; order draft operations, delivery, confirm, payment link next |
 | **E. Hardening** | Gemini failover/reindex, Groq limits, injection suite, golden path |
 
-The first implementation plan covered **Slice A only**. Later slices get their own plans once A is
-verified, because the agent should consume a retrieval interface that is already tested.
+Slices A and B have their own implementation plans (linked above). Slice C/D work will get a new
+plan once the agent tools and chat event contract are settled.
 
 Implemented in Slice A:
 
@@ -44,6 +48,47 @@ Implemented in Slice A:
 - `app/rag/retrieval.py` — tenant-scoped hybrid ranking
 - Migration `0006` — pgvector, `knowledge_chunks`, HNSW + GIN indexes
 - `PUT /business-info/{source}` — best-effort reindex after save
+
+Implemented in Slice B:
+
+- `app/agent/agent.py` — Groq model factory and PydanticAI agent builder
+- `app/agent/prompts.py` — grounding rules and the `<buyer_message>` data boundary
+- `app/agent/tools/` — business-info retrieval, catalogue SQL, and human handoff
+- `app/agent/service.py` — streamed turn, bounded history, persistence, error events
+- `POST /public/chat/{slug}/messages` — visitor turn over SSE
+- `tests/test_agent_*.py` — prompt/config units, tool tests, turn persistence, route SSE
+
+## Agent core
+
+The agent runs through PydanticAI with a Groq model (`GROQ_AGENT_MODEL`, default
+`openai/gpt-oss-120b`). The cheap classifier/utility model is `GROQ_CHEAP_MODEL`, default
+`openai/gpt-oss-20b`. The agent is built per turn so the system prompt always reflects the current
+merchant name and currency.
+
+### Tools
+
+| Tool | Data source | Boundary |
+|---|---|---|
+| `search_business_info(query)` | `app/rag/retrieval.py` hybrid search | Read-only, tenant-scoped, returns citations |
+| `search_catalogue(query, limit)` | SQL over `products` / `product_variants` | Exact price/stock; only active products for this merchant |
+| `request_handoff(reason)` | `app/conversations/service.request_handoff` | Moves the thread to the owner inbox |
+
+Products are deliberately **not** retrieved through the vector index. Similar-sounding text must
+never be able to supply a price.
+
+### Turn lifecycle
+
+1. The route checks the store slug and the visitor token.
+2. In `ai` mode it resolves the Groq model; missing `GROQ_API_KEY` returns `503` before saving.
+3. The customer message is persisted.
+4. The agent receives the last 20 customer/agent messages, the current buyer text wrapped in
+   `<buyer_message>`, and a prompt containing the hard grounding rules.
+5. Text deltas stream as `delta`; tool calls emit `tool_status`; failures emit `error`; the final
+   assistant message is persisted and then `done` is emitted.
+6. In `handoff_requested` or `human_active`, the customer message is still saved and the stream
+   emits a `system` handoff notice plus `done`; the AI does not run.
+
+The agent is not given direct database or payment access beyond these typed tools.
 
 ## RAG design
 
@@ -100,7 +145,7 @@ Hybrid search over one merchant's chunks:
 - weighted score: `0.7 * vector + 0.3 * text`
 - returns chunk text, source, and score
 
-The agent tool later wraps this as `search_business_info(query)`. It returns citations, not
+The agent tool wraps this as `search_business_info(query)`. It returns citations, not
 instructions.
 
 ## Grounding invariants
@@ -129,8 +174,15 @@ GEMINI_API_KEY=
 GROQ_API_KEY=
 ```
 
-`GROQ_API_KEY` is only needed when Slice B starts. RAG tests use deterministic mock embeddings, so
-the foundation can be built and tested without hosted keys.
+`GROQ_API_KEY` is required for live agent turns. RAG and agent tests use deterministic mock
+embeddings and PydanticAI `TestModel`, so the code can be built and tested without hosted keys.
+Live end-to-end chat also needs a working embedding provider (`ollama pull bge-m3` for local dev,
+or Cloudflare/Gemini credentials).
+
+On this development machine `bge-m3` is pulled, but the installed Ollama server currently fails
+embedding requests because its `llama-server` binary is missing. Repair the system Ollama install
+(or point `OLLAMA_BASE_URL` at a working Ollama instance) before live RAG testing. Catalogue and
+plain chat turns do not depend on embeddings.
 
 The database must have pgvector enabled:
 
@@ -143,9 +195,12 @@ applied to the dev database.
 
 ## What is still paused
 
-- Refund flow
-- Recovery worker
+- Refund flow and recovery worker
 - Production deployment/hardening
-- Agent and chat integration (Slice B onward)
+- Ordering tools (order drafts, delivery selection, confirm, payment link)
+- Order-card `order_update` events, handoff classifier, per-IP/per-conversation rate limits
+- Gemini failover and the full prompt-injection/golden-path suite
 
-Refunds and recovery are not prerequisites for Slice A. They remain in the Phase 5 backlog.
+Refunds and recovery remain in the Phase 5 backlog. The agent core is stable enough to build
+ordering tools on next. Live Groq turns are verified; live RAG still needs a working embedding
+provider.

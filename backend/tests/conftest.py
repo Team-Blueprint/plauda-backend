@@ -11,6 +11,8 @@ from app.db import session as session_module
 from app.db.base import Base
 from app.main import app
 
+os.environ.setdefault("PYDANTIC_AI_NO_BANNER", "1")
+
 
 @pytest.fixture
 async def client():

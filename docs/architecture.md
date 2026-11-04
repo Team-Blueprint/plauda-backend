@@ -1,9 +1,9 @@
 # Backend architecture
 
 > Phases 0–1, the non-AI parts of Phase 3 (orders foundation + owner payment-link endpoint), the
-> conversations/SSE foundation (including visitor messages), the PayPal backend layer, the Phase 5
-> dashboard summary + payment audit endpoints, and the **RAG foundation** are implemented. Agent
-> turns, ordering tools, and the recovery worker are queued — see `status.md`.
+> conversations/SSE foundation, the PayPal backend layer, the Phase 5 dashboard summary + payment
+> audit endpoints, the **RAG foundation**, and the **agent core + streamed chat turns** are
+> implemented. Ordering tools and the recovery worker are queued — see `status.md`.
 
 ## Stack
 
@@ -16,6 +16,7 @@
 | DB | Supabase Postgres + pgvector | connect through the Supavisor pooler |
 | Auth | JWT (HS256, python-jose) + bcrypt | Bearer tokens, no cookies |
 | Lint/format | ruff | line length 100, target py312 |
+| AI | PydanticAI + Groq | typed tools, streaming turns, TestModel tests |
 | Tests | pytest + pytest-asyncio | DB tests gated on `TEST_DATABASE_URL` |
 
 ## Module layout
@@ -75,17 +76,25 @@ backend/
 │   │   ├── schemas.py         PayPal setup/status models
 │   │   ├── errors.py          domain errors mapped to HTTP by app/errors.py
 │   │   └── paypal/client.py   Orders v2 + webhook verification adapter (httpx)
-│   └── rag/
-│       ├── chunker.py         markdown → overlapping token chunks
-│       ├── embedders/         Cloudflare / Ollama / Gemini adapters + factory
-│       ├── reindex.py         replace a document's chunks atomically
-│       └── retrieval.py       tenant-scoped hybrid vector + full-text search
+│   ├── rag/
+│   │   ├── chunker.py         markdown → overlapping token chunks
+│   │   ├── embedders/         Cloudflare / Ollama / Gemini adapters + factory
+│   │   ├── reindex.py         replace a document's chunks atomically
+│   │   └── retrieval.py       tenant-scoped hybrid vector + full-text search
+│   └── agent/
+│       ├── agent.py           Groq model factory + PydanticAI agent builder
+│       ├── prompts.py         grounding rules + buyer-text data boundary
+│       ├── service.py         streamed turn, bounded history, persistence
+│       ├── routes.py          POST /public/chat/{slug}/messages (SSE)
+│       ├── deps.py            per-turn session/merchant/conversation deps
+│       ├── schemas.py         chat-turn request model
+│       └── tools/             business-info retrieval, catalogue SQL, handoff
 ├── alembic/               async migrations
 ├── scripts/export_openapi.py
 └── tests/
 ```
 
-Later phases add sibling packages: `agent/` and `workers/` — exactly as laid out in
+Later phases add the `workers/` package for recovery jobs — exactly as laid out in
 `BUILD_PLAN.md` §10.
 
 ## Request lifecycle
@@ -329,10 +338,13 @@ No accounts or login in v1 — a customer row is created with each new thread.
   `("conversation", id)` for the visitor and `("merchant", merchant_id)` for the inbox. Single API
   process only; if the API is scaled out, swap the transport for Postgres `LISTEN/NOTIFY` without
   changing the event contract.
-- Streams are `GET /public/conversations/{id}/stream` and `GET /conversations/stream`. The frontend
-  must use streaming `fetch()` because `EventSource` cannot send an `Authorization` header.
-- Events: `message` (persisted message) and `conversation_update` (status/customer summary), plus
-  keepalive comments. See `docs/contracts/sse.md`.
+- Live streams are `GET /public/conversations/{id}/stream` and `GET /conversations/stream`. The
+  frontend must use streaming `fetch()` because `EventSource` cannot send an `Authorization`
+  header.
+- A chat turn is `POST /public/chat/{slug}/messages`; it streams `delta`, `tool_status`, `system`,
+  `error`, and `done`, then ends. See `docs/contracts/sse.md`.
+- Live events: `message` (persisted message) and `conversation_update` (status/customer summary),
+  plus keepalive comments.
 - SSE endpoints authenticate with a short-lived DB session and do not hold a connection for the
   lifetime of the stream.
 
@@ -387,6 +399,27 @@ No accounts or login in v1 — a customer row is created with each new thread.
 - Embedding provider selection is `EMBEDDING_PROVIDER`; switching providers requires a full
   reindex before searching the new space.
 
+## Agent core & chat turns
+
+- `app/agent/agent.py` builds one PydanticAI agent per turn with a Groq model
+  (`GROQ_AGENT_MODEL`). `GROQ_API_KEY` is required for live turns; missing config returns `503`
+  before a customer message is saved.
+- `app/agent/prompts.py` contains the hard grounding rules. Buyer text is wrapped in
+  `<buyer_message>` tags and treated as data; it must never override the system rules.
+- Tools are typed and tenant-scoped:
+  - `search_business_info(query)` calls the hybrid RAG retrieval service and returns citations.
+  - `search_catalogue(query, limit)` uses SQL over active products and variants, returning exact
+    prices and stock. The agent never receives product rows from the vector index.
+  - `request_handoff(reason)` moves an `ai` conversation to `handoff_requested` and posts a system
+    message.
+- `app/agent/service.py` loads the last 20 customer/agent messages (4,000 characters each), streams
+  text deltas and tool status, persists the final `agent` message, then emits `done`. Provider or
+  agent failures emit an `error` frame; the customer message remains in history.
+- `POST /public/chat/{slug}/messages` requires the visitor token and body
+  `{conversation_id, content}`. In `handoff_requested` / `human_active`, the visitor message is
+  stored but the AI is skipped and the stream emits a `system` handoff notice.
+- Agent and route tests use PydanticAI `TestModel`; no live Groq call is required in CI.
+
 ## Supabase specifics
 
 - Paste the **connection-pooling** string from the Supabase dashboard as `DATABASE_URL` — plain
@@ -433,9 +466,10 @@ All settings live in `app/config.py` and are loaded from environment / `backend/
 - `uv run pytest -q` — unit tests (security, healthz, SSE hub, crypto, PayPal adapter with
   `httpx.MockTransport`) run offline.
 - DB-backed tests (`tests/test_auth_api.py`, `test_catalogue_api.py`, `test_orders.py`,
-  `test_conversations_api.py`, `test_payments.py`, and the RAG DB tests) run only when
-  `TEST_DATABASE_URL` is set; they create the schema with `metadata.create_all` and clean up rows
-  marked `@plauda-test.com` / slug prefix `pytest-`.
+  `test_conversations_api.py`, `test_payments.py`, the RAG DB tests, `test_agent_tools.py`,
+  `test_agent_turn.py`, and `test_agent_api.py`) run only when `TEST_DATABASE_URL` is set; they
+  create the schema with `metadata.create_all` and clean up rows marked `@plauda-test.com` / slug
+  prefix `pytest-`. `test_agent_config.py` and the other unit tests run offline.
 - The suite round-trips to Supabase and takes ~30 minutes.
 - CI (`.github/workflows/ci.yml`): `ruff check`, `ruff format --check`, `pytest`.
 

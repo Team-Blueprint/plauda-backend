@@ -60,10 +60,11 @@ The UI should switch on these exact strings.
 | `ignored` | Event applied to nothing (unknown order, already-paid order, non-actionable event) |
 | `failed` | Reserved for dispatch failures |
 
-## System message kind — `messages.meta.kind`
+## Message metadata kind — `messages.meta.kind`
 
 | Value | Meaning |
 |---|---|
+| `chat` | Ordinary grounded AI reply (`role="agent"`) |
 | `handoff` | Handoff requested / owner joined / returned to AI / closed |
 | `payment` | Payment received or declined notice |
 

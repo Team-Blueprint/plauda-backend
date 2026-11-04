@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
+from app.agent.routes import router as agent_chat_router
 from app.auth.routes import router as auth_router
 from app.config import get_settings
 from app.conversations.routes_inbox import router as inbox_router
@@ -49,6 +50,7 @@ def create_app() -> FastAPI:
     app.include_router(public_router)
     app.include_router(orders_router)
     app.include_router(public_chat_router)
+    app.include_router(agent_chat_router)
     app.include_router(inbox_router)
     app.include_router(summary_router)
     app.include_router(audit_router)

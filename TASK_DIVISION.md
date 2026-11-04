@@ -93,7 +93,7 @@ class EmbeddingProvider(Protocol):
 | Owner | Tasks |
 |---|---|
 | **B** | Order model + state machine (`draft→confirmed`), server-side totals recomputation; **DB-backed implementations of M's tools** (catalogue search, order ops, delivery); inbox API (list, accept, staff reply, close, return-to-AI); state-gated tool filtering in `agent.py` |
-| **M** | Agent tool registry & behavior contract (finalized with B in `agent-tools.md`); recommendation strategy (budget/preference → SQL query patterns); prompt v2 with order-draft + payment-status re-injection; handoff trigger A (phrase list) + trigger B (`llama-3.1-8b-instant` classifier) + "no staff available" honest path; state-machine agent tests |
+| **M** | Agent tool registry & behavior contract (finalized with B in `agent-tools.md`); recommendation strategy (budget/preference → SQL query patterns); prompt v2 with order-draft + payment-status re-injection; handoff trigger A (phrase list) + trigger B (`openai/gpt-oss-20b` classifier) + "no staff available" honest path; state-machine agent tests |
 | **F** | Inbox two-pane UI (conversation list via SSE + thread view); accept/reply/close/return controls; handoff-reason banner; order summary card live-updating from `order_update` events; "Talk to a human" button in chat |
 
 ### Phase 4 — PayPal (~1–1.5 weeks)

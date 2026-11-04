@@ -49,7 +49,7 @@ UI, mobile apps.
 | Frontend | **React + Vite + TypeScript**, Tailwind, React Query, react-router | One app: dashboard routes + public chat route |
 | Database | **Supabase** (Postgres + **pgvector** — supported, enable `create extension vector;`) | Dev DB; free tier. Connection via asyncpg through the pooler |
 | Agent runtime | **PydanticAI** tool-calling loop | Provider-agnostic; bounded, state-gated tools |
-| Agent LLM (dev/free) | **Groq** — `llama-3.3-70b-versatile` (agent), `gpt-oss-120b` (alt), `llama-3.1-8b-instant` (classifier/cheap turns) | Free tier: 30 RPM, ~14.4K RPD small models, ~1K RPD large; TPM is the real ceiling |
+| Agent LLM (dev/free) | **Groq** — `openai/gpt-oss-120b` (agent), `openai/gpt-oss-20b` (classifier/cheap turns) | Free tier: 30 RPM, ~14.4K RPD small models, ~1K RPD large; TPM is the real ceiling |
 | Embeddings primary | **Cloudflare Workers AI** — `bge-m3` (1024 dims) | Permanent free, production-legal, no card |
 | Embeddings backup | **Google Gemini** — `gemini-embedding-001` | Free tier via AI Studio key; different vector space → switch requires reindex (§5) |
 | Embeddings (local dev alt) | **Ollama local** — `bge-m3` | Free/unlimited; same model as CF, index stays compatible |
@@ -139,7 +139,7 @@ acceptance, refunds above the merchant's cap, anything unconfigured.
 
 - **Trigger A (deterministic):** regex/phrase match + a visible "Talk to a human" button.
   Honored immediately, no retry.
-- **Trigger B (agent-initiated):** a cheap classifier turn on `llama-3.1-8b-instant` scores
+- **Trigger B (agent-initiated):** a cheap classifier turn on `openai/gpt-oss-20b` scores
   frustration/complaint/out-of-scope; above threshold → auto handoff.
 - On handoff: agent posts one message ("A person from {merchant} is taking over"), then stops
   (conversation mode `human_active` suppresses agent turns). Inbox alert includes full transcript,
@@ -455,7 +455,7 @@ Each phase ends with a demo-able "done when". Tasks are checkboxes; tests named 
 - [ ] Gemini embedding adapter + `EMBEDDING_PROVIDER` switch + full reindex worker; auto-fallback
       for new chunks with provider flags (§5 semantics)
 - [ ] Groq limit awareness: prompt caching for the stable system-prompt prefix, per-merchant daily
-      turn caps, 8B model for classifier turns, graceful queue/retry on 429s
+      turn caps, `openai/gpt-oss-20b` for classifier turns, graceful queue/retry on 429s
 - [ ] Injection suite: buyer-text-as-data tests, prompt-guard pre-filter on, tool-arg validation
 - [ ] Security pass: rate limits, CORS lockdown, JWT expiry/refresh, secrets hygiene,
       Supabase RLS off (backend-owned access) but DB credentials scoped
@@ -510,7 +510,7 @@ Each phase ends with a demo-able "done when". Tasks are checkboxes; tests named 
 
 | Risk | Mitigation |
 |---|---|
-| Groq free TPM ceiling (~6K TPM) under real chat load | Short prompts (order/state re-injection instead of long transcripts), prompt caching on the stable prefix, 8B for cheap turns, per-merchant caps; graduate to Groq Developer tier (card, no minimum, ~10× limits) at first real merchant |
+| Groq free TPM ceiling (~6K TPM) under real chat load | Short prompts (order/state re-injection instead of long transcripts), prompt caching on the stable prefix, `openai/gpt-oss-20b` for cheap turns, per-merchant caps; graduate to Groq Developer tier (card, no minimum, ~10× limits) at first real merchant |
 | Supabase free project pauses after ~1 wk inactivity | Weekly cron ping (GitHub Action or uptime pinger) during dev |
 | PayPal partner approval lead time | v1 merchant-credential path (§6.1); partner onboarding in backlog |
 | Embedding provider switch breaks vector space | Single active provider + per-row provider/model metadata + reindex worker before switch goes live |

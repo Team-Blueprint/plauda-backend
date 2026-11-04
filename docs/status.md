@@ -42,7 +42,7 @@ health check green. — ✅ **All verified.**
 | Tests: catalogue, variants, zones, business info, settings, public meta, storage | ✅ |
 | Procrastinate worker setup | ⏸ deferred until worker tasks begin |
 
-## Phase 2 — Grounded chat / conversations — 🔨 conversation foundation done, agent queued
+## Phase 2 — Grounded chat / conversations — 🔨 agent core + streamed turns done; rate limits next
 
 | Task | Status |
 |---|---|
@@ -54,9 +54,13 @@ health check green. — ✅ **All verified.**
 | Conversation status machine (`ai → handoff_requested → human_active → closed`, `human_active → ai`) | ✅ |
 | In-process SSE hub + visitor/inbox streams (`message`, `conversation_update`) | ✅ |
 | Tests: token isolation, handoff lifecycle, tenant scoping, pagination, order link, SSE hub | ✅ 9 pass |
-| **AI turns, handoff classifier, streaming turn events** | ⏳ queued after the RAG foundation |
+| PydanticAI agent core + Groq model factory + grounding prompt | ✅ 6 tests |
+| Typed tools: business-info retrieval, catalogue SQL, human handoff | ✅ 3 tests |
+| Streamed agent turn: deltas, tool status, history, persistence, `done`/`error` | ✅ 1 test |
+| `POST /public/chat/{slug}/messages` SSE route + human-mode bypass + 503 config guard | ✅ 3 tests |
+| Per-IP/per-conversation rate limits, order-card events, handoff classifier | ⏳ next Phase 2 work |
 
-## Phase 3 — Ordering & handoff — 🔨 order backend done, agent queued
+## Phase 3 — Ordering & handoff — 🔨 order backend done, ordering tools queued
 
 | Task | Status |
 |---|---|
@@ -66,8 +70,8 @@ health check green. — ✅ **All verified.**
 | Product delete guard for order history (`409`) | ✅ |
 | Migration `0003` (orders, order_items, status check, recovery index) | ✅ applied |
 | Tests: state machine, totals recomputation, merge, lifecycle, tenant scoping | ✅ 10 pass |
-| **PydanticAI agent + tool registry + state-gated tools** | ⏳ queued after the RAG foundation |
-| **Order tools wired into chat (`create_payment_link`, etc.)** | ⏳ queued after the agent core |
+| **PydanticAI agent + tool registry** | ✅ agent core + business-info/catalogue/handoff tools |
+| **Order tools wired into chat (`create_payment_link`, etc.)** | ⏳ queued after this agent slice |
 
 ## Phase 4 — PayPal — ✅ complete
 
@@ -102,8 +106,9 @@ health check green. — ✅ **All verified.**
 
 ## Test suite
 
-Full backend suite: **102 tests** (offline units + Supabase-backed API tests). Runtime ~30 min
-because every DB test round-trips to Supabase. Verified 2026-11-04.
+Full backend suite: **115 tests passed** on 2026-11-04 (offline units + Supabase-backed API tests).
+The agent-core slice adds **13 targeted tests**. Runtime is ~30 min because every DB test
+round-trips to Supabase.
 
 ## Open items
 
@@ -114,6 +119,10 @@ because every DB test round-trips to Supabase. Verified 2026-11-04.
 | Public HTTPS URL for webhooks | ✅ ngrok verified | `APP_BASE_URL/webhooks/paypal/{merchant_id}`; update PayPal if the tunnel URL changes |
 | Frontend repo/location | Frontend dev | Contracts in `docs/contracts/` are ready |
 | Domain for `plauda.app` links | You | Open question in BUILD_PLAN §16 |
-| AI build | You | ✅ RAG foundation done 2026-11-04; agent core is next |
+| AI build | You | ✅ RAG foundation + agent core done 2026-11-04; live Groq catalogue turn verified; ordering tools are next |
+| `GROQ_API_KEY` | You | ✅ configured in gitignored `backend/.env`; live turns use `openai/gpt-oss-120b` |
+| Rotate Groq API key | You (recommended) | The key was shared in chat; rotate it after local verification and update `backend/.env` |
+| Local embedding model | You | ✅ `ollama pull bge-m3` completed; ⚠️ Ollama embedding requests fail because `llama-server` is missing — repair the Ollama install before live RAG |
+| Cloudflare/Gemini keys | You | Optional hosted embedding providers; not configured |
 | Recovery worker | You | Paused by request; dashboard + audit are done |
 | Rotate Supabase DB password | You (optional) | The dev connection string was shared in chat; it is only in gitignored `.env` |
