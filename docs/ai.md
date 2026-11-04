@@ -1,9 +1,9 @@
 # Plauda AI — architecture & implementation notes
 
 **Status:** Slice A (RAG foundation) is implemented and verified. Slice B (agent core) is
-implemented, covered by 13 targeted tests, live-verified against Groq with a real catalogue tool
-call, and verified by the full backend suite (**115 tests passed**, 2026-11-04). Ordering tools are
-queued next.
+implemented, covered by 13 targeted tests, live-verified against Groq with real catalogue and
+Cloudflare-backed RAG tool calls, and verified by the full backend suite (**115 tests passed**,
+2026-11-04). Ordering tools are queued next.
 
 This document is the readable companion to the AI sections of
 [`BUILD_PLAN.md`](../BUILD_PLAN.md):
@@ -159,11 +159,16 @@ instructions.
 
 ## Local development
 
-Default provider is `ollama_local`:
+The template default is `ollama_local`:
 
 ```bash
 ollama pull bge-m3
 ```
+
+This development machine currently uses Cloudflare Workers AI (`EMBEDDING_PROVIDER=cloudflare`,
+`@cf/baai/bge-m3`) because the installed Ollama server is missing its `llama-server` binary. Both
+providers produce 1024-dimensional BGE-M3 vectors, but switching providers requires reindexing all
+business-info documents before retrieval.
 
 Required keys for the hosted providers:
 
@@ -179,10 +184,8 @@ embeddings and PydanticAI `TestModel`, so the code can be built and tested witho
 Live end-to-end chat also needs a working embedding provider (`ollama pull bge-m3` for local dev,
 or Cloudflare/Gemini credentials).
 
-On this development machine `bge-m3` is pulled, but the installed Ollama server currently fails
-embedding requests because its `llama-server` binary is missing. Repair the system Ollama install
-(or point `OLLAMA_BASE_URL` at a working Ollama instance) before live RAG testing. Catalogue and
-plain chat turns do not depend on embeddings.
+Cloudflare and Groq are verified live on this machine. Ollama remains optional; repair its
+`llama-server` installation (or point `OLLAMA_BASE_URL` at a working instance) before using it.
 
 The database must have pgvector enabled:
 
@@ -202,5 +205,4 @@ applied to the dev database.
 - Gemini failover and the full prompt-injection/golden-path suite
 
 Refunds and recovery remain in the Phase 5 backlog. The agent core is stable enough to build
-ordering tools on next. Live Groq turns are verified; live RAG still needs a working embedding
-provider.
+ordering tools on next. Live Groq turns and Cloudflare-backed RAG are verified.

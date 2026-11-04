@@ -58,8 +58,11 @@ backend/app/agent/
 - Live Groq verification passed: the agent called `search_catalogue`, answered with the seeded
   exact price (`$25.00 USD`), and persisted the customer/agent messages. The temporary merchant
   used for the check was deleted.
-- `bge-m3` is pulled in Ollama, but the installed Ollama runner is missing its `llama-server`
-  binary, so live RAG still needs the local Ollama installation repaired.
+- Live RAG verification passed with Cloudflare Workers AI: a seeded policy was indexed with
+  `@cf/baai/bge-m3`, `search_business_info` found it, and the agent answered with the indexed
+  return window. The temporary merchant and chunks were deleted.
+- Ollama is optional; the installed runner is missing `llama-server`, so local embeddings need a
+  repair before use.
 
 ## Follow-ups
 
