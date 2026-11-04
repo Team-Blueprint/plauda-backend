@@ -1675,6 +1675,9 @@
               "text/event-stream": {}
             }
           },
+          "429": {
+            "description": "Rate limit exceeded"
+          },
           "503": {
             "description": "AI assistant is not configured"
           },

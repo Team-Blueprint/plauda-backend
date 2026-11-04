@@ -1,8 +1,8 @@
 # Orders API (dashboard)
 
-**Status:** Phase 3 backend foundation — complete. Order creation is owned by the backend order
-service (the agent ordering tools will call it in the next slice); the dashboard reads orders and
-performs owner actions.
+**Status:** Phase 3 — complete. Orders originate in AI chat through typed, server-owned tools; the
+dashboard reads orders and performs owner actions. The backend still owns all prices, stock checks,
+delivery fees, totals, state transitions, and payment-link creation.
 
 All endpoints require `Authorization: Bearer <token>` and only return the caller's orders.
 
@@ -47,6 +47,38 @@ correctly after catalogue edits. A product that is inactive at confirmation bloc
 (`422`); a deleted product keeps its snapshot but cannot be reconfirmed.
 
 Money is always a decimal **string** (`"60.50"`).
+
+## Agent-driven ordering
+
+The chat agent builds orders through these server-side tools:
+
+| Tool | Effect |
+|---|---|
+| `start_order` | Creates one draft for the current conversation |
+| `add_order_item` | Adds a product/variant; creates a draft if needed; enforces stock |
+| `remove_order_item` | Removes a line from a draft |
+| `get_delivery_options` | Lists merchant zones, areas, fees, and ETAs |
+| `set_delivery_details` | Stores the chosen zone and address on a draft |
+| `confirm_order` | Recomputes live prices/stock/delivery and moves to `confirmed` |
+| `create_payment_link` | Creates/reuses the PayPal approval link for a confirmed order |
+
+Safety rules enforced by the server, not the prompt:
+
+- A product with variants requires a variant ID. The chosen variant must belong to that product
+  and have enough stock for the requested total quantity.
+- Variables and zones must belong to the same merchant as the order.
+- Only draft orders can be edited. Confirmed, pending-payment, and paid orders cannot be modified or
+  duplicated through chat.
+- Prices, delivery fees, and totals are always reloaded from live catalogue/zone rows at
+  confirmation; the model never supplies them.
+- `confirm_order` is rejected unless the buyer's current message explicitly confirms (for example
+  “yes”, “confirm”, or “place the order”).
+- Payment links are only created for confirmed orders with a positive server-owned total.
+- Stock is validated but not reserved or decremented in this slice.
+
+The chat stream sends an `order_update` replacement card after each order-changing tool; the same
+card is published to the visitor and owner live streams. See
+[`../contracts/sse.md`](../contracts/sse.md).
 
 ## `GET /orders`
 
@@ -142,6 +174,5 @@ verified `PAYMENT.CAPTURE.COMPLETED` webhook; this endpoint never marks an order
 
 - `POST /orders/{id}/refund` and over-cap approval — Phase 5 (the PayPal refund adapter + webhook
   audit already exist).
-- Creating orders from the dashboard — orders originate in chat (agent tools, paused with AI).
-- The `create_payment_link` agent tool — the owner endpoint and internal service are ready; see
-  [`payments.md`](payments.md).
+- Creating orders manually from the dashboard — orders originate in chat through the agent tools.
+- Stock reservation/decrement and recovery reminders/expiry — later work.

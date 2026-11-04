@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
 from app.db.models import Merchant, Order
+from app.orders.events import publish_order_update
 from app.orders.service import mark_pending_payment, money
 from app.payments.audit import record_action
 from app.payments.errors import (
@@ -79,4 +80,5 @@ async def create_payment_link_for_order(
         detail={"paypal_order_id": paypal_order_id},
     )
     await session.commit()
+    publish_order_update(order)
     return order

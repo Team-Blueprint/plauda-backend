@@ -49,6 +49,7 @@ Status codes used so far:
 | `404` | Unknown resource, wrong visitor token, or another merchant's row |
 | `409` | Conflict (email exists, invalid status transition, product has orders) |
 | `422` | Request body/params failed validation |
+| `429` | Chat-turn rate limit exceeded; retry after the `Retry-After` header |
 | `501` | Feature not configured (e.g. PayPal credentials missing) |
 | `502` | Upstream provider failure (PayPal API) |
 | `500` | Unhandled server error (generic message; details stay in server logs) |

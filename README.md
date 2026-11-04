@@ -4,9 +4,9 @@ Plauda gives every business an **AI employee**: it chats with customers from the
 approved information, recommends products, builds structured orders, sends a PayPal checkout,
 confirms payment from a verified webhook, and logs the sale to the owner's dashboard — 24/7.
 
-> Status: **Phase 5 backend + AI agent core** — catalogue, orders, conversations/SSE, PayPal,
-> dashboard summary, payment audit, RAG retrieval, and streamed grounded chat turns are built. The
-> next AI slice is ordering tools; refunds and the recovery worker are paused. See `BUILD_PLAN.md`
+> Status: **Phase 5 backend + AI ordering** — catalogue, orders, conversations/SSE, PayPal,
+> dashboard summary, payment audit, RAG retrieval, grounded chat turns, and agent-driven ordering
+> are built. Refunds and the recovery worker are paused; AI hardening is next. See `BUILD_PLAN.md`
 > for the full plan and `TASK_DIVISION.md` for the track split.
 
 ## Stack

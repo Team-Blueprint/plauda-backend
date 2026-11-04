@@ -1,7 +1,7 @@
 import pytest
 from pydantic_ai.models.test import TestModel
 
-from app.agent.agent import AgentConfigError, build_agent, get_agent_model
+from app.agent.agent import AgentConfigError, build_agent, get_agent_model, get_cheap_model
 from app.agent.prompts import build_system_prompt, build_user_prompt
 from app.config import get_settings
 from app.db.models import Merchant
@@ -24,6 +24,7 @@ def test_system_prompt_contains_grounding_rules():
     assert "Never invent a product, price" in prompt
     assert "<buyer_message>" in prompt
     assert "Never say a payment is confirmed" in prompt
+    assert "no order exists yet" in prompt
 
 
 def test_user_prompt_treats_injection_as_data():
@@ -57,6 +58,16 @@ def test_agent_model_uses_the_configured_groq_model(monkeypatch):
     model = get_agent_model()
 
     assert getattr(model, "model_name", None) == "openai/gpt-oss-120b"
+
+
+def test_cheap_model_uses_the_configured_groq_model(monkeypatch):
+    monkeypatch.setenv("GROQ_API_KEY", "test-key")
+    monkeypatch.setenv("GROQ_CHEAP_MODEL", "openai/gpt-oss-20b")
+    get_settings.cache_clear()
+
+    model = get_cheap_model()
+
+    assert getattr(model, "model_name", None) == "openai/gpt-oss-20b"
 
 
 def test_build_agent_with_test_model():

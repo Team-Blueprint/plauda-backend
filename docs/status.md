@@ -42,7 +42,7 @@ health check green. — ✅ **All verified.**
 | Tests: catalogue, variants, zones, business info, settings, public meta, storage | ✅ |
 | Procrastinate worker setup | ⏸ deferred until worker tasks begin |
 
-## Phase 2 — Grounded chat / conversations — 🔨 agent core + streamed turns done; rate limits next
+## Phase 2 — Grounded chat / conversations — ✅ complete (hardening continues in Phase 6)
 
 | Task | Status |
 |---|---|
@@ -58,9 +58,9 @@ health check green. — ✅ **All verified.**
 | Typed tools: business-info retrieval, catalogue SQL, human handoff | ✅ 3 tests |
 | Streamed agent turn: deltas, tool status, history, persistence, `done`/`error` | ✅ 1 test |
 | `POST /public/chat/{slug}/messages` SSE route + human-mode bypass + 503 config guard | ✅ 3 tests |
-| Per-IP/per-conversation rate limits, order-card events, handoff classifier | ⏳ next Phase 2 work |
+| Per-IP/per-conversation rate limits, order-card events, handoff classifier | ✅ implemented + tested |
 
-## Phase 3 — Ordering & handoff — 🔨 order backend done, ordering tools queued
+## Phase 3 — Ordering & handoff — ✅ complete
 
 | Task | Status |
 |---|---|
@@ -71,7 +71,10 @@ health check green. — ✅ **All verified.**
 | Migration `0003` (orders, order_items, status check, recovery index) | ✅ applied |
 | Tests: state machine, totals recomputation, merge, lifecycle, tenant scoping | ✅ 10 pass |
 | **PydanticAI agent + tool registry** | ✅ agent core + business-info/catalogue/handoff tools |
-| **Order tools wired into chat (`create_payment_link`, etc.)** | ⏳ queued after this agent slice |
+| **Order tools wired into chat (`start_order` … `create_payment_link`)** | ✅ implemented + tested |
+| Current-order prompt context + live `order_update` cards | ✅ |
+| Variant stock validation at add and confirmation | ✅ |
+| Agent uses existing PayPal service (`trigger="agent"`) and paid webhook publishes card | ✅ |
 
 ## Phase 4 — PayPal — ✅ complete
 
@@ -106,9 +109,9 @@ health check green. — ✅ **All verified.**
 
 ## Test suite
 
-Full backend suite: **115 tests passed** on 2026-11-04 (offline units + Supabase-backed API tests).
-The agent-core slice adds **13 targeted tests**. Runtime is ~30 min because every DB test
-round-trips to Supabase.
+Full backend suite: **129 tests passed** on 2026-11-04 (offline units + Supabase-backed API tests),
+including **27 targeted agent, safety, and ordering tests**. Runtime is ~30 min because every DB
+test round-trips to Supabase.
 
 ## Open items
 
@@ -119,7 +122,7 @@ round-trips to Supabase.
 | Public HTTPS URL for webhooks | ✅ ngrok verified | `APP_BASE_URL/webhooks/paypal/{merchant_id}`; update PayPal if the tunnel URL changes |
 | Frontend repo/location | Frontend dev | Contracts in `docs/contracts/` are ready |
 | Domain for `plauda.app` links | You | Open question in BUILD_PLAN §16 |
-| AI build | You | ✅ RAG foundation + agent core done 2026-11-04; live Groq catalogue and Gemini RAG turns verified; ordering tools are next |
+| AI build | You | ✅ RAG foundation, agent core, chat safety, and ordering tools done 2026-11-04; live Groq catalogue, Gemini RAG, and ordering flow verified; hardening is next |
 | `GROQ_API_KEY` | You | ✅ configured in gitignored `backend/.env`; live turns use `openai/gpt-oss-120b` |
 | Rotate Groq API key | You (recommended) | The key was shared in chat; rotate it after local verification and update `backend/.env` |
 | Embedding provider | You | ✅ Gemini `gemini-embedding-001` configured and live-verified; this is the active provider |

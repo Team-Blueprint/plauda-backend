@@ -5,6 +5,7 @@ from pydantic_ai.models.test import TestModel
 from sqlalchemy import select
 
 from app.agent.agent import AgentConfigError
+from app.agent.handoff import HandoffDecision
 from app.db.models import Conversation
 
 
@@ -30,6 +31,10 @@ async def test_chat_turn_streams_agent_reply_and_persists_it(db_client, merchant
         lambda: TestModel(call_tools=[], custom_output_text="Hello from the assistant."),
     )
 
+    async def no_handoff(*args, **kwargs):
+        return HandoffDecision(should_handoff=False)
+
+    monkeypatch.setattr("app.agent.routes.classify_handoff", no_handoff)
     response = await db_client.post(
         f"/public/chat/{slug}/messages",
         json={"conversation_id": conversation["conversation_id"], "content": "Hi"},

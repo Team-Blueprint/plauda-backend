@@ -51,6 +51,13 @@ class Settings(BaseSettings):
     groq_agent_model: str = "openai/gpt-oss-120b"
     groq_cheap_model: str = "openai/gpt-oss-20b"
 
+    # Chat safety. Set a limit to 0 to disable that scope; the window is shared by both limits.
+    chat_rate_limit_per_ip: int = 30
+    chat_rate_limit_per_conversation: int = 12
+    chat_rate_limit_window_seconds: int = 60
+    handoff_classifier_enabled: bool = True
+    handoff_classifier_timeout_seconds: float = 8.0
+
     # PayPal (Phase 4 — encrypted per-merchant REST app credentials)
     paypal_client_id: str = ""
     paypal_client_secret: str = ""

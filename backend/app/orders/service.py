@@ -33,6 +33,22 @@ async def get_order(session: AsyncSession, merchant_id: uuid.UUID, order_id: uui
     return order
 
 
+async def get_latest_order_for_conversation(
+    session: AsyncSession,
+    merchant_id: uuid.UUID,
+    conversation_id: uuid.UUID,
+) -> Order | None:
+    return await session.scalar(
+        select(Order)
+        .where(
+            Order.merchant_id == merchant_id,
+            Order.conversation_id == conversation_id,
+        )
+        .order_by(Order.created_at.desc(), Order.id.desc())
+        .limit(1)
+    )
+
+
 async def create_draft(
     session: AsyncSession,
     *,
@@ -88,6 +104,12 @@ async def add_item(
         )
         if variant is None:
             raise OrderNotFoundError("Variant not found")
+    else:
+        has_variants = await session.scalar(
+            select(ProductVariant.id).where(ProductVariant.product_id == product.id).limit(1)
+        )
+        if has_variants is not None:
+            raise OrderError(f"Choose a variant for {product.name!r} before adding it")
 
     existing = next(
         (
@@ -97,8 +119,12 @@ async def add_item(
         ),
         None,
     )
+    target_qty = qty + (existing.qty if existing is not None else 0)
+    if variant is not None and target_qty > variant.stock:
+        raise OrderError(f"Only {variant.stock} of {product.name} ({variant.name}) are in stock")
+
     if existing is not None:
-        existing.qty += qty
+        existing.qty = target_qty
         await session.commit()
         await session.refresh(existing)
         return existing
@@ -133,7 +159,7 @@ async def remove_item(session: AsyncSession, order: Order, item_id: uuid.UUID) -
         raise OrderNotFoundError("Order item not found")
     await session.delete(item)
     await session.commit()
-    await session.refresh(order)
+    await session.refresh(order, ["items"])
 
 
 async def set_delivery(
@@ -198,6 +224,10 @@ async def confirm_order(session: AsyncSession, order: Order) -> Order:
             variant = await session.get(ProductVariant, item.variant_id, populate_existing=True)
             if variant is None or variant.product_id != product.id:
                 raise OrderError(f"Variant for {product.name!r} is no longer available")
+            if variant.stock < item.qty:
+                raise OrderError(
+                    f"Only {variant.stock} of {product.name} ({variant.name}) are in stock"
+                )
             if variant.price_override is not None:
                 unit_price = variant.price_override
             item.variant_snapshot = {"name": variant.name, "options": variant.options}

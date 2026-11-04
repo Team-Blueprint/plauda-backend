@@ -1,7 +1,7 @@
 # Conversations API
 
-**Status:** Phase 2 agent core — complete. Visitor turns stream through the PydanticAI agent;
-ordering tools and order-card events are queued. Live AI turns need `GROQ_API_KEY`; RAG answers
+**Status:** Phase 2/3 — complete. Visitor turns stream through the PydanticAI agent, including
+typed ordering tools and live order-card events. Live AI turns need `GROQ_API_KEY`; RAG answers
 also need a working embedding provider. The thread, handoff, owner inbox, and live streams are
 ready.
 
@@ -21,8 +21,8 @@ ai ──(visitor handoff)──▶ handoff_requested ──(owner accepts)─�
 ```
 
 - `closed` is terminal.
-- `handoff_requested` is set by the visitor's “Talk to a human” action (later also by the handoff
-  classifier).
+- `handoff_requested` is set by the visitor's “Talk to a human” action, an explicit phrase in a
+  chat turn, or the cheap-model handoff classifier.
 - Only the owner can move a thread to `human_active`, back to `ai`, or to `closed`.
 - Owner replies are only accepted while the thread is `human_active` (`409` otherwise).
 
@@ -60,18 +60,31 @@ The main chat turn. Headers: `Authorization: Bearer <visitor_token>`. Body:
 }
 ```
 
-The route saves the customer message, runs one agent turn, and streams SSE frames
-(`delta`, `tool_status`, `system`, `error`, `done`). Use a streaming `fetch()`, not native
-`EventSource`; see [`../contracts/sse.md`](../contracts/sse.md).
+The route saves the customer message, runs the handoff checks, and then runs one agent turn. It
+streams SSE frames (`delta`, `tool_status`, `order_update`, `system`, `error`, `done`). Use a
+streaming `fetch()`, not native `EventSource`; see
+[`../contracts/sse.md`](../contracts/sse.md).
+
+Rate limits: 30 messages/minute per client IP and 12 messages/minute per conversation by default
+(configurable with `CHAT_RATE_LIMIT_PER_IP`, `CHAT_RATE_LIMIT_PER_CONVERSATION`, and
+`CHAT_RATE_LIMIT_WINDOW_SECONDS`; `0` disables a scope). The limiter is in-process for v1.
 
 - `200` with `text/event-stream`.
 - `401` missing visitor token.
 - `404` unknown store/conversation or wrong visitor token.
 - `409` when the thread is `closed`.
 - `422` for empty or over-10,000-character content.
+- `429` when a rate limit is exceeded; the response also sends `Retry-After` in seconds. No
+  customer message is saved in that case.
 - `503` when `GROQ_API_KEY` is not configured. No customer message is saved in that case.
 - If the thread is `handoff_requested` or `human_active`, the message is saved but the AI does not
   run. The stream emits a `system` handoff notice and `done`.
+- If the buyer explicitly asks for a human, or the handoff classifier flags frustration/complaint/
+  out-of-scope intent, the message is saved, the thread becomes `handoff_requested`, and the stream
+  emits the handoff notice. The classifier is fail-open: a timeout or provider error continues
+  with a normal agent reply.
+- Confirmed or pending-payment orders cannot be edited by later chat turns. `order_update` cards
+  replace the client's entire current order card.
 
 ### `GET /public/conversations/{conversation_id}/messages`
 
@@ -215,7 +228,7 @@ closed.
 ### `GET /conversations/stream`
 
 Server-Sent Events for the whole inbox (all of the merchant's conversations). Requires the JWT;
-use streaming `fetch()`. Events are `message` and `conversation_update` — see
+use streaming `fetch()`. Events are `message`, `conversation_update`, and `order_update` — see
 [`../contracts/sse.md`](../contracts/sse.md).
 
 ## Message roles
@@ -236,4 +249,5 @@ use streaming `fetch()`. Events are `message` and `conversation_update` — see
 | `404` | Unknown conversation/store, wrong visitor token, or another merchant's conversation |
 | `409` | Invalid status transition (e.g. staff reply while `ai`, customer message or handoff on `closed`) |
 | `422` | Invalid query/body (unknown status filter, empty reply) |
+| `429` | Chat-turn rate limit exceeded (see `Retry-After`) |
 | `503` | Chat turn requested while `GROQ_API_KEY` is missing |

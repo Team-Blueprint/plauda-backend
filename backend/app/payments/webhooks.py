@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.conversations import service as conversation_service
 from app.db.models import Conversation, Merchant, Message, Order, PayPalWebhookEvent
 from app.orders.errors import OrderError
+from app.orders.events import publish_order_update
 from app.orders.service import mark_paid
 from app.payments.audit import record_action
 from app.payments.errors import (
@@ -302,6 +303,7 @@ async def _handle_capture_completed(
         kind="payment",
         content="Payment received — your order is confirmed.",
     )
+    publish_order_update(order)
     return "processed"
 
 

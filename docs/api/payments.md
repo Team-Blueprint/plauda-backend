@@ -2,7 +2,8 @@
 
 **Status:** Phase 4 complete. A live sandbox purchase was approved, captured, and confirmed by
 webhook on 2026-11-02 (`USD 10.00`, capture `1EA58572KJ470073T`); the order moved to `paid`.
-Webhook signatures and idempotency are verified.
+Webhook signatures and idempotency are verified. The chat agent now creates the same
+merchant-owned payment links for orders it confirms.
 
 Plauda never touches card data: buyers approve payment on PayPal, and the **verified webhook** is
 the only path that marks an order `paid`.
@@ -97,9 +98,17 @@ Responses:
 - Amounts come from the order service, never from the webhook payload or the client.
 - Every money action writes a `payment_actions` row (`action`, `trigger`, `amount`, `result`,
   `detail`). Read the trail with `GET /audit` — see [`dashboard.md`](dashboard.md).
-- A paid order posts one system message into its conversation (deduplicated by `event_id`).
+- A paid order posts one system message into its conversation (deduplicated by `event_id`) and
+  publishes an `order_update` card with `status: "paid"`.
 
 ## Creating a payment link
+
+There are two callers of the same server-side service:
+
+- **Chat agent:** `create_payment_link` tool after the buyer confirms a draft order. It uses
+  `trigger="agent"`, is available only for `confirmed` orders, and returns the link to the model so
+  it can share it in the chat.
+- **Owner dashboard:** `POST /orders/{order_id}/payment-link` with `trigger="staff"`.
 
 Owner endpoint:
 
@@ -114,16 +123,16 @@ Rules:
 - The backend creates a PayPal Orders v2 order with `intent=CAPTURE` and the server-owned total.
 - On success the order moves to `pending_payment` with `paypal_order_id`, `approval_link`, and
   `expires_at` (merchant recovery timeout).
-- The endpoint is idempotent while the order is `pending_payment`: it returns the existing link
-  instead of creating another PayPal order.
+- Both callers are idempotent while the order is `pending_payment`: repeated calls return the
+  existing link instead of creating another PayPal order.
 - The approval link is what the chat/dashboard shows to the buyer.
 - Return/cancel URLs default to `{FRONTEND_BASE_URL}/checkout/result?order_id=…`.
-- The endpoint never marks an order paid; the verified capture webhook remains the only writer of
+- Neither path marks an order paid; the verified capture webhook remains the only writer of
   `paid`.
+- Creating a link publishes an `order_update` card to the visitor conversation and owner inbox.
 
-The underlying service is `app/payments/service.py::create_payment_link_for_order`. The future
-`create_payment_link` agent tool will call the same service with `trigger="agent"`; the owner
-endpoint uses `trigger="staff"`.
+The underlying service is `app/payments/service.py::create_payment_link_for_order`. The chat tool
+passes `trigger="agent"`; the owner endpoint uses `trigger="staff"`.
 
 ## Refunds
 
@@ -157,5 +166,5 @@ store currency is validated at settings/catalogue setup; orders inherit it at dr
    - Replaying the same webhook returns `{"status":"ignored","reason":"duplicate"}`.
 6. Confirm the capture amount/currency match the Plauda order.
 
-Until AI order-building ships, step 1 uses the backend order service directly (there is no
-dashboard order-create endpoint).
+Until a dashboard order-create endpoint exists, step 1 uses the AI chat flow or the backend order
+service directly.

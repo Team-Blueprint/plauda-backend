@@ -1,4 +1,4 @@
-.PHONY: install dev test lint fmt migrate revision openapi
+.PHONY: install dev test lint fmt migrate revision openapi deploy
 
 install:
 	cd backend && uv sync
@@ -23,3 +23,6 @@ revision:
 
 openapi:
 	cd backend && uv run python scripts/export_openapi.py
+
+deploy:
+	cd backend && uv run fastapi deploy

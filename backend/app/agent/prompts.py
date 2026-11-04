@@ -1,6 +1,7 @@
 import html
 
-from app.db.models import Merchant
+from app.agent.order_context import format_order_for_prompt
+from app.db.models import Merchant, Order
 
 GROUNDING_RULES = """\
 You are the AI assistant for {store_name}, a store that sells in {currency}.
@@ -19,9 +20,30 @@ Answer only from the results of your tools and the approved store information.
 - Keep replies short, warm, and concrete. Do not use tables or long markdown.
 """
 
+ORDERING_RULES = """\
+Ordering rules:
+- Use get_delivery_options for every delivery fee, area, and ETA question.
+- Use start_order before building a new order. add_order_item can also start a draft if needed.
+- Use only product and variant ids returned by search_catalogue. Never invent ids.
+- Before calling confirm_order, summarize the items, delivery fee, and total and ask the buyer
+  for explicit confirmation. Only confirm after they say yes.
+- After confirmation, call create_payment_link and give the buyer the approval link.
+- The server computes all totals. Never calculate a total yourself or change a unit price.
+- Never call create_payment_link before the order is confirmed.
+- If an order action fails, explain it briefly and offer to connect the buyer with the seller.
+- Payment is only confirmed by the store system after PayPal notifies it. Never say an order is
+  paid just because the buyer opened or completed a checkout page.
+"""
 
-def build_system_prompt(merchant: Merchant) -> str:
-    return GROUNDING_RULES.format(store_name=merchant.name, currency=merchant.currency)
+
+def build_system_prompt(merchant: Merchant, order: Order | None = None) -> str:
+    return "\n".join(
+        [
+            GROUNDING_RULES.format(store_name=merchant.name, currency=merchant.currency),
+            ORDERING_RULES,
+            format_order_for_prompt(order),
+        ]
+    )
 
 
 def build_user_prompt(content: str) -> str:

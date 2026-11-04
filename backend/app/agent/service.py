@@ -24,6 +24,8 @@ from app.agent.deps import AgentDeps
 from app.agent.prompts import build_user_prompt
 from app.conversations import service as conversation_service
 from app.db.models import Conversation, Merchant, Message
+from app.orders import service as order_service
+from app.orders.cards import order_card
 from app.rag.embedders.base import EmbeddingProvider
 
 logger = logging.getLogger(__name__)
@@ -31,8 +33,25 @@ logger = logging.getLogger(__name__)
 TOOL_LABELS = {
     "search_business_info": "checking the store information",
     "search_catalogue": "checking the catalogue",
+    "start_order": "starting the order",
+    "add_order_item": "adding to the order",
+    "remove_order_item": "updating the order",
+    "get_delivery_options": "checking delivery options",
+    "set_delivery_details": "saving delivery details",
+    "confirm_order": "confirming the order",
+    "create_payment_link": "creating the payment link",
     "request_handoff": "connecting you to the seller",
 }
+ORDER_TOOLS = frozenset(
+    {
+        "start_order",
+        "add_order_item",
+        "remove_order_item",
+        "set_delivery_details",
+        "confirm_order",
+        "create_payment_link",
+    }
+)
 MAX_HISTORY_MESSAGES = 20
 MAX_HISTORY_CHARS = 4000
 
@@ -82,7 +101,12 @@ async def stream_turn(
 ) -> AsyncIterator[dict[str, Any]]:
     """Run one streamed agent turn and persist the final assistant message."""
     model = model or get_agent_model()
-    agent = build_agent(model, merchant)
+    latest_order = await order_service.get_latest_order_for_conversation(
+        session,
+        merchant.id,
+        conversation.id,
+    )
+    agent = build_agent(model, merchant, latest_order)
     history = await _load_history(
         session,
         conversation.id,
@@ -93,6 +117,7 @@ async def stream_turn(
         merchant=merchant,
         conversation=conversation,
         embedding_provider=embedding_provider,
+        current_message=user_text,
     )
 
     chunks: list[str] = []
@@ -125,6 +150,14 @@ async def stream_turn(
                         "state": "done",
                         "label": TOOL_LABELS.get(tool, "done"),
                     }
+                    if tool in ORDER_TOOLS:
+                        order = await order_service.get_latest_order_for_conversation(
+                            session,
+                            merchant.id,
+                            conversation.id,
+                        )
+                        if order is not None:
+                            yield {"type": "order_update", "order": order_card(order)}
                 elif isinstance(event, AgentRunResultEvent):
                     final_output = str(event.result.output)
 

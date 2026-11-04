@@ -1,9 +1,10 @@
 # Plauda AI — architecture & implementation notes
 
-**Status:** Slice A (RAG foundation) is implemented and verified. Slice B (agent core) is
-implemented, covered by 13 targeted tests, live-verified against Groq with real catalogue and
-Gemini-backed RAG tool calls, and verified by the full backend suite (**115 tests passed**,
-2026-11-04). Ordering tools are queued next.
+**Status:** Slices A (RAG foundation), B (agent core), C (chat integration), and D (ordering tools)
+are implemented. The agent now answers from merchant data, builds and confirms orders through typed
+tools, creates the merchant's PayPal approval link, emits live order cards, and hands off to a human
+on explicit or classified escalation. Gemini-backed RAG, Groq chat, and the ordering flow are
+live-verified.
 
 This document is the readable companion to the AI sections of
 [`BUILD_PLAN.md`](../BUILD_PLAN.md):
@@ -17,6 +18,7 @@ The detailed task plans are:
 
 - [`superpowers/plans/2026-11-02-ai-rag-foundation.md`](superpowers/plans/2026-11-02-ai-rag-foundation.md) — Slice A
 - [`superpowers/plans/2026-11-04-ai-agent-core.md`](superpowers/plans/2026-11-04-ai-agent-core.md) — Slice B
+- [`superpowers/plans/2026-11-04-ai-ordering-tools.md`](superpowers/plans/2026-11-04-ai-ordering-tools.md) — Slices C/D
 
 ## What the AI layer must do
 
@@ -33,12 +35,12 @@ The detailed task plans are:
 |---|---|
 | **A. RAG foundation** | ✅ `knowledge_chunks`, chunker, embedding adapters, reindex, hybrid retrieval |
 | **B. Agent core** | ✅ PydanticAI loop, grounding prompt, typed tools, TestModel tests |
-| **C. Chat integration** | 🔨 streamed visitor turns + tool status done; order cards, handoff classifier, rate limits next |
-| **D. Ordering tools** | catalogue search ✅; order draft operations, delivery, confirm, payment link next |
+| **C. Chat integration** | ✅ streamed turns, live order cards, handoff classifier, rate limits |
+| **D. Ordering tools** | ✅ catalogue search, draft/item/delivery/confirm, payment link |
 | **E. Hardening** | Gemini failover/reindex, Groq limits, injection suite, golden path |
 
-Slices A and B have their own implementation plans (linked above). Slice C/D work will get a new
-plan once the agent tools and chat event contract are settled.
+Slices A and B have their own implementation plans (linked above). Slice C/D work is recorded in
+the ordering-tools plan.
 
 Implemented in Slice A:
 
@@ -58,6 +60,21 @@ Implemented in Slice B:
 - `POST /public/chat/{slug}/messages` — visitor turn over SSE
 - `tests/test_agent_*.py` — prompt/config units, tool tests, turn persistence, route SSE
 
+Implemented in Slice C:
+
+- Per-IP and per-conversation sliding-window rate limits (`429` + `Retry-After`)
+- Deterministic handoff phrase matching plus a fail-open Groq classifier
+- `order_update` on the chat turn stream and on live conversation/owner streams
+- Order-card serialization with decimal-string money values
+
+Implemented in Slice D:
+
+- `app/agent/tools/orders.py` — typed, state-gated order tools
+- Current-order context injected into the system prompt on every turn
+- Server-side variant stock checks at add and confirmation
+- `create_payment_link` reuses the existing PayPal service with `trigger="agent"`
+- Confirmed/pending orders cannot be edited or duplicated through chat
+
 ## Agent core
 
 The agent runs through PydanticAI with a Groq model (`GROQ_AGENT_MODEL`, default
@@ -71,21 +88,80 @@ merchant name and currency.
 |---|---|---|
 | `search_business_info(query)` | `app/rag/retrieval.py` hybrid search | Read-only, tenant-scoped, returns citations |
 | `search_catalogue(query, limit)` | SQL over `products` / `product_variants` | Exact price/stock; only active products for this merchant |
+| `start_order()` | `app/orders/service.create_draft` | One active order per conversation |
+| `add_order_item(product_id, variant_id, qty)` | Catalogue + order service | Server checks tenant, active product, variant stock; creates a draft if needed |
+| `remove_order_item(item_id)` | Order service | Draft orders only |
+| `get_delivery_options()` | `delivery_zones` | Tenant-scoped fees, areas, and ETAs |
+| `set_delivery_details(zone_id, address)` | Order service | Draft orders only; zone must belong to the merchant |
+| `confirm_order()` | Order service | Recomputes live catalogue prices, stock, delivery fee, and totals |
+| `create_payment_link()` | `app/payments/service` | Confirmed orders only; uses the merchant's PayPal app and `trigger="agent"` |
 | `request_handoff(reason)` | `app/conversations/service.request_handoff` | Moves the thread to the owner inbox |
 
 Products are deliberately **not** retrieved through the vector index. Similar-sounding text must
 never be able to supply a price.
 
+### Ordering flow
+
+1. `search_catalogue` returns exact product/variant IDs, prices, and stock.
+2. `add_order_item` creates a draft if needed. Products with variants require a variant ID so the
+   stock check cannot be bypassed; a variant quantity above stock is rejected.
+3. `get_delivery_options` lists the merchant's zones; `set_delivery_details` stores the chosen
+   zone and address on the draft.
+4. The model must summarize items, delivery fee, and the server-computed total and ask for explicit
+   confirmation before calling `confirm_order`. The tool itself rejects confirmation unless the
+   buyer's current message contains an explicit yes/confirm/place-order phrase, so the model cannot
+   skip the approval step.
+5. `confirm_order` reloads live product/variant and zone rows, recomputes subtotal, delivery fee,
+   and total, and moves the order to `confirmed`.
+6. `create_payment_link` calls the existing payment service with `trigger="agent"`, moving the
+   order to `pending_payment` and returning the PayPal approval link.
+
+Only draft orders can be edited. A confirmed, pending-payment, or paid order cannot be modified or
+duplicated through chat. The owner can still cancel an eligible order from the dashboard.
+
+Stock is validated at add and confirmation time but is **not reserved or decremented** in this
+slice; the payment webhook remains the only paid transition.
+
+### Chat safety
+
+Before the agent runs, the chat route applies a shared sliding-window limit:
+
+| Scope | Default | Config |
+|---|---|---|
+| Per client IP | 30 messages / 60s | `CHAT_RATE_LIMIT_PER_IP` |
+| Per conversation | 12 messages / 60s | `CHAT_RATE_LIMIT_PER_CONVERSATION` |
+| Window | 60s | `CHAT_RATE_LIMIT_WINDOW_SECONDS` |
+
+Set either limit to `0` to disable that scope. Exceeding a limit returns HTTP `429` with a
+`Retry-After` header before the customer message is saved. The limiter is in-process, matching the
+SSE hub; replace it with a shared store before running multiple API instances.
+
+Handoff has two layers:
+
+1. Deterministic phrase matching for explicit requests such as “talk to a human” or “customer
+   support”.
+2. A fail-open cheap-model classifier (`HANDOFF_CLASSIFIER_ENABLED`, default on) for frustration,
+   complaints, disputes, and out-of-scope requests.
+
+If either layer decides to hand off, the customer message is persisted, the thread moves to
+`handoff_requested`, a system message is added, and the turn streams the handoff notice without
+calling the main agent. A provider timeout or error in the classifier logs a warning and continues
+with the normal agent reply. `HANDOFF_CLASSIFIER_TIMEOUT_SECONDS` bounds the classifier call.
+
 ### Turn lifecycle
 
-1. The route checks the store slug and the visitor token.
+1. The route checks the store slug and the visitor token, then applies the rate limit.
 2. In `ai` mode it resolves the Groq model; missing `GROQ_API_KEY` returns `503` before saving.
 3. The customer message is persisted.
-4. The agent receives the last 20 customer/agent messages, the current buyer text wrapped in
-   `<buyer_message>`, and a prompt containing the hard grounding rules.
-5. Text deltas stream as `delta`; tool calls emit `tool_status`; failures emit `error`; the final
-   assistant message is persisted and then `done` is emitted.
-6. In `handoff_requested` or `human_active`, the customer message is still saved and the stream
+4. Explicit and model-assisted handoff checks run. A handoff ends the turn with a `system`
+   notice plus `done`.
+5. The agent receives the last 20 customer/agent messages, the current buyer text wrapped in
+   `<buyer_message>`, the current server-owned order state, and the grounding/ordering prompt.
+6. Text deltas stream as `delta`; tool calls emit `tool_status`. After an order-changing tool, the
+   server reloads the order and emits `order_update` with a full replacement card.
+7. The final assistant message is persisted, then `done` is emitted. Failures emit `error`
+   followed by `done`.
+8. In `handoff_requested` or `human_active`, the customer message is still saved and the stream
    emits a `system` handoff notice plus `done`; the AI does not run.
 
 The agent is not given direct database or payment access beyond these typed tools.
@@ -153,9 +229,11 @@ instructions.
 - Buyer text is data, never instructions.
 - The model cannot state a price, stock level, discount, or policy without a tool result.
 - The model cannot mark an order paid, issue an uncapped refund, or write totals.
+- Order tools resolve product, variant, zone, price, stock, and totals on the server; the model
+  only supplies IDs, quantities, addresses, and intent.
 - Payment confirmation only comes from the verified PayPal webhook.
 - If the answer is not in the data: say so and offer to relay to the seller.
-- A human handoff is honored immediately.
+- A human handoff is honored immediately, including when the classifier requests it.
 
 ## Local development
 
@@ -180,10 +258,13 @@ GEMINI_API_KEY=
 GROQ_API_KEY=
 ```
 
-`GROQ_API_KEY` is required for live agent turns. RAG and agent tests use deterministic mock
-embeddings and PydanticAI `TestModel`, so the code can be built and tested without hosted keys.
-Live end-to-end chat also needs a working embedding provider (`ollama pull bge-m3` for local dev,
-or Cloudflare/Gemini credentials).
+`GROQ_API_KEY` is required for live agent turns and for the handoff classifier. Chat safety is
+configured with `CHAT_RATE_LIMIT_PER_IP`, `CHAT_RATE_LIMIT_PER_CONVERSATION`,
+`CHAT_RATE_LIMIT_WINDOW_SECONDS`, `HANDOFF_CLASSIFIER_ENABLED`, and
+`HANDOFF_CLASSIFIER_TIMEOUT_SECONDS`. RAG and agent tests use deterministic mock embeddings and
+PydanticAI test models, so the code can be built and tested without hosted keys. Live end-to-end
+chat also needs a working embedding provider (`ollama pull bge-m3` for local dev, or
+Cloudflare/Gemini credentials).
 
 Gemini, Cloudflare, and Groq are verified live on this machine. Ollama remains optional; repair
 its `llama-server` installation (or point `OLLAMA_BASE_URL` at a working instance) before using it.
@@ -201,9 +282,9 @@ applied to the dev database.
 
 - Refund flow and recovery worker
 - Production deployment/hardening
-- Ordering tools (order drafts, delivery selection, confirm, payment link)
-- Order-card `order_update` events, handoff classifier, per-IP/per-conversation rate limits
+- Shared (multi-instance) rate limiting and durable handoff/queue infrastructure
 - Gemini failover and the full prompt-injection/golden-path suite
+- Stock reservation/decrement on payment
 
-Refunds and recovery remain in the Phase 5 backlog. The agent core is stable enough to build
-ordering tools on next. Live Groq turns and Gemini-backed RAG are verified.
+Refunds and recovery remain in the Phase 5 backlog. Slices A–D are built; Slice E hardening is
+next. Live Groq chat, Gemini-backed RAG, and the ordering flow are verified.

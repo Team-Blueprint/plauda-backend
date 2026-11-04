@@ -2,8 +2,9 @@
 
 > Phases 0–1, the non-AI parts of Phase 3 (orders foundation + owner payment-link endpoint), the
 > conversations/SSE foundation, the PayPal backend layer, the Phase 5 dashboard summary + payment
-> audit endpoints, the **RAG foundation**, and the **agent core + streamed chat turns** are
-> implemented. Ordering tools and the recovery worker are queued — see `status.md`.
+> audit endpoints, the **RAG foundation**, the **agent core + streamed chat turns**, and the
+> **agent ordering tools + chat safety** are implemented. Refunds and the recovery worker are
+> paused — see `status.md`.
 
 ## Stack
 
@@ -410,15 +411,31 @@ No accounts or login in v1 — a customer row is created with each new thread.
   - `search_business_info(query)` calls the hybrid RAG retrieval service and returns citations.
   - `search_catalogue(query, limit)` uses SQL over active products and variants, returning exact
     prices and stock. The agent never receives product rows from the vector index.
+  - `start_order` / `add_order_item` / `remove_order_item` / `get_delivery_options` /
+    `set_delivery_details` / `confirm_order` / `create_payment_link` call the order and payment
+    services. The model supplies IDs, quantities, and addresses; the server owns prices, stock
+    checks, fees, totals, and state transitions.
   - `request_handoff(reason)` moves an `ai` conversation to `handoff_requested` and posts a system
     message.
+- `app/agent/prompts.py` includes the current server-owned order state on every turn, so the model
+  sees the latest draft status and payment link without trusting chat history.
+- `app/agent/rate_limit.py` runs an in-process sliding window before a chat turn: 30/IP/min and
+  12/conversation/min by default. Limits are configurable and `0` disables a scope; exceeding a
+  limit returns `429` with `Retry-After` before the message is saved.
+- `app/agent/handoff.py` performs deterministic handoff phrase matching plus a fail-open cheap-model
+  classifier. Either path moves the thread to `handoff_requested` without running the main agent.
 - `app/agent/service.py` loads the last 20 customer/agent messages (4,000 characters each), streams
-  text deltas and tool status, persists the final `agent` message, then emits `done`. Provider or
-  agent failures emit an `error` frame; the customer message remains in history.
+  text deltas and tool status, persists the final `agent` message, then emits `done`. After an
+  order-changing tool it emits a full `order_update` card. Provider or agent failures emit an
+  `error` frame; the customer message remains in history.
+- `app/orders/cards.py` serializes order cards with decimal-string money values. The same card is
+  published to the visitor conversation and owner inbox when a payment link is created or a paid
+  webhook lands.
 - `POST /public/chat/{slug}/messages` requires the visitor token and body
   `{conversation_id, content}`. In `handoff_requested` / `human_active`, the visitor message is
   stored but the AI is skipped and the stream emits a `system` handoff notice.
-- Agent and route tests use PydanticAI `TestModel`; no live Groq call is required in CI.
+- Agent and route tests use PydanticAI test models and patched classifiers; no live Groq call is
+  required in CI.
 
 ## Supabase specifics
 
@@ -449,8 +466,10 @@ All settings live in `app/config.py` and are loaded from environment / `backend/
 (template: `backend/.env.example`). Notable keys: `DATABASE_URL`, `JWT_SECRET`,
 `JWT_EXPIRY_MINUTES`, `CORS_ORIGINS` (JSON list), `LOG_LEVEL`, `CREDENTIAL_ENCRYPTION_KEY`
 (required to store PayPal credentials — losing it makes stored credentials undecryptable),
-`EMBEDDING_PROVIDER` + its provider credentials, and the Phase 2 agent keys (`GROQ_API_KEY`,
-`GROQ_AGENT_MODEL`, `GROQ_CHEAP_MODEL`).
+`EMBEDDING_PROVIDER` + its provider credentials, the Phase 2 agent keys (`GROQ_API_KEY`,
+`GROQ_AGENT_MODEL`, `GROQ_CHEAP_MODEL`), and chat safety (`CHAT_RATE_LIMIT_PER_IP`,
+`CHAT_RATE_LIMIT_PER_CONVERSATION`, `CHAT_RATE_LIMIT_WINDOW_SECONDS`,
+`HANDOFF_CLASSIFIER_ENABLED`, `HANDOFF_CLASSIFIER_TIMEOUT_SECONDS`).
 
 ## Logging & errors
 
@@ -467,9 +486,10 @@ All settings live in `app/config.py` and are loaded from environment / `backend/
   `httpx.MockTransport`) run offline.
 - DB-backed tests (`tests/test_auth_api.py`, `test_catalogue_api.py`, `test_orders.py`,
   `test_conversations_api.py`, `test_payments.py`, the RAG DB tests, `test_agent_tools.py`,
-  `test_agent_turn.py`, and `test_agent_api.py`) run only when `TEST_DATABASE_URL` is set; they
-  create the schema with `metadata.create_all` and clean up rows marked `@plauda-test.com` / slug
-  prefix `pytest-`. `test_agent_config.py` and the other unit tests run offline.
+  `test_agent_turn.py`, `test_agent_api.py`, `test_agent_ordering.py`, and
+  `test_agent_safety.py`) run only when `TEST_DATABASE_URL` is set; they create the schema with
+  `metadata.create_all` and clean up rows marked `@plauda-test.com` / slug prefix `pytest-`.
+  `test_agent_config.py` and the other unit tests run offline.
 - The suite round-trips to Supabase and takes ~30 minutes.
 - CI (`.github/workflows/ci.yml`): `ruff check`, `ruff format --check`, `pytest`.
 

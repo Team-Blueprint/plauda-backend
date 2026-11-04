@@ -14,3 +14,4 @@ class AgentDeps:
     merchant: Merchant
     conversation: Conversation
     embedding_provider: EmbeddingProvider | None = None
+    current_message: str = ""
