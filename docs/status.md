@@ -1,6 +1,6 @@
 # Build status
 
-Last updated: 2026-11-02
+Last updated: 2026-11-04
 
 ## Phase 0 — Foundations (backend) — ✅ complete
 
@@ -25,22 +25,24 @@ health check green. — ✅ **All verified.**
 > (encrypted, no certificate verification). The default stays `verify-full`; switch back on a
 > normal network.
 
-## Phase 1 — Catalogue & RAG — 🔨 backend part done, AI paused
+## Phase 1 — Catalogue & RAG — ✅ complete
 
 | Task | Status |
 |---|---|
 | Products + variants CRUD (tenant-scoped, PayPal currency rules, max 5 images) | ✅ |
 | Delivery zones CRUD | ✅ |
-| Business info markdown storage (`about` / `policies` / `faq`) | ✅ storage only |
+| Business info markdown storage (`about` / `policies` / `faq`) | ✅ storage + best-effort reindex |
 | Store settings (currency, refund cap, recovery toggle/timeout) | ✅ |
 | Public store meta `GET /public/chat/{slug}/meta` (no auth) | ✅ |
 | Product image upload → Supabase Storage (`POST/DELETE /products/{id}/images`) | ✅ live-verified |
 | Migration `0002` (products, variants, zones, business info, pg_trgm) | ✅ |
+| Migration `0006` (pgvector, `knowledge_chunks`, HNSW + GIN indexes) | ✅ applied |
+| **RAG: chunker, CF/Ollama/Gemini adapters, atomic reindex, hybrid retrieval** | ✅ 26 tests |
+| `PUT /business-info/{source}` reindexes after save; provider outage keeps old chunks | ✅ 2 tests |
 | Tests: catalogue, variants, zones, business info, settings, public meta, storage | ✅ |
-| **AI: chunker, embedders (CF/Ollama/Gemini), hybrid retrieval** | ⏸ paused by request |
-| Procrastinate worker setup | ⏸ deferred until worker tasks (AI) begin |
+| Procrastinate worker setup | ⏸ deferred until worker tasks begin |
 
-## Phase 2 — Grounded chat / conversations — 🔨 conversation foundation done, AI paused
+## Phase 2 — Grounded chat / conversations — 🔨 conversation foundation done, agent queued
 
 | Task | Status |
 |---|---|
@@ -52,9 +54,9 @@ health check green. — ✅ **All verified.**
 | Conversation status machine (`ai → handoff_requested → human_active → closed`, `human_active → ai`) | ✅ |
 | In-process SSE hub + visitor/inbox streams (`message`, `conversation_update`) | ✅ |
 | Tests: token isolation, handoff lifecycle, tenant scoping, pagination, order link, SSE hub | ✅ 9 pass |
-| **AI turns, handoff classifier, streaming turn events** | ⏸ paused by request |
+| **AI turns, handoff classifier, streaming turn events** | ⏳ queued after the RAG foundation |
 
-## Phase 3 — Ordering & handoff — 🔨 order backend done, AI paused
+## Phase 3 — Ordering & handoff — 🔨 order backend done, agent queued
 
 | Task | Status |
 |---|---|
@@ -64,8 +66,8 @@ health check green. — ✅ **All verified.**
 | Product delete guard for order history (`409`) | ✅ |
 | Migration `0003` (orders, order_items, status check, recovery index) | ✅ applied |
 | Tests: state machine, totals recomputation, merge, lifecycle, tenant scoping | ✅ 10 pass |
-| **PydanticAI agent + tool registry + state-gated tools** | ⏸ paused by request |
-| **Order tools wired into chat (`create_payment_link`, etc.)** | ⏸ paused by request |
+| **PydanticAI agent + tool registry + state-gated tools** | ⏳ queued after the RAG foundation |
+| **Order tools wired into chat (`create_payment_link`, etc.)** | ⏳ queued after the agent core |
 
 ## Phase 4 — PayPal — ✅ complete
 
@@ -100,8 +102,8 @@ health check green. — ✅ **All verified.**
 
 ## Test suite
 
-Full backend suite: **74 tests** (offline units + Supabase-backed API tests). Runtime ~22–30 min
-because every DB test round-trips to Supabase.
+Full backend suite: **102 tests** (offline units + Supabase-backed API tests). Runtime ~30 min
+because every DB test round-trips to Supabase. Verified 2026-11-04.
 
 ## Open items
 
@@ -112,6 +114,6 @@ because every DB test round-trips to Supabase.
 | Public HTTPS URL for webhooks | ✅ ngrok verified | `APP_BASE_URL/webhooks/paypal/{merchant_id}`; update PayPal if the tunnel URL changes |
 | Frontend repo/location | Frontend dev | Contracts in `docs/contracts/` are ready |
 | Domain for `plauda.app` links | You | Open question in BUILD_PLAN §16 |
-| AI start approval | You | Paused until you say go |
+| AI build | You | ✅ RAG foundation done 2026-11-04; agent core is next |
 | Recovery worker | You | Paused by request; dashboard + audit are done |
 | Rotate Supabase DB password | You (optional) | The dev connection string was shared in chat; it is only in gitignored `.env` |

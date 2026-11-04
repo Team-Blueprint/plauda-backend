@@ -15,6 +15,7 @@ Start here, then open the file for your task.
 | [`contracts/openapi.json`](contracts/openapi.json) | Machine-readable REST surface (generated from the app) | Frontend (codegen) |
 | [`contracts/sse.md`](contracts/sse.md) | Live conversation/inbox events + the future chat turn stream (`delta`, `tool_status`, `order_update`, `system`, `error`, `done`) | Frontend (chat + inbox) |
 | [`contracts/enums.md`](contracts/enums.md) | Canonical status/role strings used by API + UI | Frontend + backend |
+| [`ai.md`](ai.md) | AI architecture, RAG/agent plan, grounding rules, build order | Backend + AI |
 | [`architecture.md`](architecture.md) | Backend stack, module layout, DB schema, multi-tenancy, env config, conventions | Backend + AI |
 | [`status.md`](status.md) | Phase tracker — what is built, what is next, what is blocked | Everyone |
 

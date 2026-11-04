@@ -1,3 +1,4 @@
+import logging
 from typing import Literal
 
 from fastapi import APIRouter, status
@@ -7,6 +8,10 @@ from app.db.models import BusinessInfoDocument
 from app.deps import CurrentUserDep, SessionDep
 from app.merchants.constants import BUSINESS_INFO_SOURCES
 from app.merchants.schemas import BusinessInfoOut, BusinessInfoUpdate
+from app.rag.embedders.base import EmbeddingError
+from app.rag.reindex import reindex_document
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/business-info", tags=["business-info"])
 
@@ -55,4 +60,12 @@ async def put_business_info(
         document.content = payload.content
     await session.commit()
     await session.refresh(document)
+
+    try:
+        await reindex_document(session, document)
+    except EmbeddingError as exc:
+        logger.warning("business info reindex skipped for %s: %s", source, exc)
+    except Exception:
+        logger.exception("business info reindex failed for %s", source)
+
     return document

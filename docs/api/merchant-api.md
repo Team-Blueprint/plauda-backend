@@ -167,8 +167,9 @@ Always returns exactly three documents; missing ones have empty content:
 { "content": "# About\n\nWe sell hand-dyed silk." }
 ```
 
-Upserts the document. Chunking + embedding (RAG index) is wired in the AI phase; until then,
-saving only stores the markdown.
+Upserts the document and reindexes it for AI retrieval. The response is returned even if the
+embedding provider is unavailable; the previous chunks remain searchable and the save is not
+rolled back. Re-save the document to retry indexing.
 
 ---
 

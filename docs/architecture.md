@@ -1,9 +1,9 @@
 # Backend architecture
 
 > Phases 0–1, the non-AI parts of Phase 3 (orders foundation + owner payment-link endpoint), the
-> conversations/SSE foundation (including visitor messages), the PayPal backend layer, and the
-> Phase 5 dashboard summary + payment audit endpoints are implemented. AI/agent/RAG work and the
-> recovery worker are paused — see `status.md`.
+> conversations/SSE foundation (including visitor messages), the PayPal backend layer, the Phase 5
+> dashboard summary + payment audit endpoints, and the **RAG foundation** are implemented. Agent
+> turns, ordering tools, and the recovery worker are queued — see `status.md`.
 
 ## Stack
 
@@ -13,7 +13,7 @@
 | API | FastAPI | Pydantic v2 schemas, async endpoints |
 | ORM | SQLAlchemy 2.0 async (`asyncpg`) | typed `Mapped[...]` models |
 | Migrations | Alembic (async template) | migrations are the schema truth |
-| DB | Supabase Postgres (+ pgvector from Phase 1) | connect through the Supavisor pooler |
+| DB | Supabase Postgres + pgvector | connect through the Supavisor pooler |
 | Auth | JWT (HS256, python-jose) + bcrypt | Bearer tokens, no cookies |
 | Lint/format | ruff | line length 100, target py312 |
 | Tests | pytest + pytest-asyncio | DB tests gated on `TEST_DATABASE_URL` |
@@ -66,21 +66,26 @@ backend/
 │       ├── routes.py          /dashboard/summary + /audit
 │       ├── service.py         aggregate revenue/order/chat queries + audit pagination
 │       └── schemas.py         summary/audit response models
-│   └── payments/
-│       ├── routes.py          /settings/paypal + /webhooks/paypal
-│       ├── service.py         create_payment_link_for_order (agent tool later)
-│       ├── webhooks.py        signature check, event-id idempotency, dispatch
-│       ├── crypto.py          Fernet encrypt/decrypt for merchant credentials
-│       ├── audit.py           payment_actions writer
-│       ├── schemas.py         PayPal setup/status models
-│       ├── errors.py          domain errors mapped to HTTP by app/errors.py
-│       └── paypal/client.py   Orders v2 + webhook verification adapter (httpx)
+│   ├── payments/
+│   │   ├── routes.py          /settings/paypal + /webhooks/paypal
+│   │   ├── service.py         create_payment_link_for_order (agent tool later)
+│   │   ├── webhooks.py        signature check, event-id idempotency, dispatch
+│   │   ├── crypto.py          Fernet encrypt/decrypt for merchant credentials
+│   │   ├── audit.py           payment_actions writer
+│   │   ├── schemas.py         PayPal setup/status models
+│   │   ├── errors.py          domain errors mapped to HTTP by app/errors.py
+│   │   └── paypal/client.py   Orders v2 + webhook verification adapter (httpx)
+│   └── rag/
+│       ├── chunker.py         markdown → overlapping token chunks
+│       ├── embedders/         Cloudflare / Ollama / Gemini adapters + factory
+│       ├── reindex.py         replace a document's chunks atomically
+│       └── retrieval.py       tenant-scoped hybrid vector + full-text search
 ├── alembic/               async migrations
 ├── scripts/export_openapi.py
 └── tests/
 ```
 
-Later phases add sibling packages: `rag/`, `agent/`, `workers/` — exactly as laid out in
+Later phases add sibling packages: `agent/` and `workers/` — exactly as laid out in
 `BUILD_PLAN.md` §10.
 
 ## Request lifecycle
@@ -182,7 +187,27 @@ Indexes: `(merchant_id, active)`, GIN trigram on `name`.
 | `content` | text | markdown; unique per `(merchant_id, source)` |
 | `created_at` / `updated_at` | timestamptz | |
 
-Raw markdown lives here; Phase 1 AI chunks it into `knowledge_chunks` (not built yet).
+Raw markdown lives here. Saving a document reindexes it into `knowledge_chunks` on a best-effort
+basis; a provider outage does not fail the save.
+
+### `knowledge_chunks`
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | UUID PK | |
+| `merchant_id` | UUID FK → merchants, cascade delete | indexed |
+| `document_id` | UUID FK → business_info_documents, cascade delete | unique with `chunk_index` |
+| `source` | varchar(16) | `about` / `policies` / `faq` (check constraint) |
+| `chunk_index` | int | stable order within the document |
+| `content` | text | chunk text used for retrieval/citation |
+| `token_count` | int | whitespace-token approximation |
+| `embedding` | vector(1024) | HNSW cosine index |
+| `embedding_provider` / `embedding_model` | varchar | which vector space produced the row |
+| `tsv` | tsvector generated | `to_tsvector('simple', content)`, GIN index |
+| `created_at` | timestamptz | |
+
+Vector spaces are never mixed: reindexing replaces all chunks for that document with the active
+provider/model. Retrieval filters by `merchant_id` in every branch.
 
 ### `orders`
 
@@ -344,14 +369,32 @@ No accounts or login in v1 — a customer row is created with each new thread.
 - Refund adapter + refund-webhook audit exist; the owner-facing refund endpoint and over-cap
   approval are Phase 5.
 
+## RAG foundation
+
+- `app/rag/chunker.py` splits markdown into roughly 400 whitespace-token chunks with 50-token
+  overlap. It is deliberately tokenizer-approximate; the storage contract does not depend on a
+  specific tokenizer.
+- `app/rag/embedders/` exposes one `EmbeddingProvider` protocol and three adapters:
+  - `ollama_local` → `bge-m3` at `OLLAMA_BASE_URL`
+  - `cloudflare` → `@cf/baai/bge-m3`
+  - `gemini` → `gemini-embedding-001` with `outputDimensionality=1024`
+- All adapters validate count and 1024 dimensions before data reaches SQL. Gemini sends its key in
+  the `x-goog-api-key` header so request logs do not contain it.
+- `app/rag/reindex.py` embeds first, then replaces the document's chunks in one transaction. A
+  provider failure leaves the previous index intact. Saves call it best-effort.
+- `app/rag/retrieval.py` takes vector top-8 and full-text top-5 per merchant, then ranks with
+  `0.7 * vector_score + 0.3 * text_score`. Product prices are never retrieved from vectors.
+- Embedding provider selection is `EMBEDDING_PROVIDER`; switching providers requires a full
+  reindex before searching the new space.
+
 ## Supabase specifics
 
 - Paste the **connection-pooling** string from the Supabase dashboard as `DATABASE_URL` — plain
   `postgresql://` is fine. The app converts it to `postgresql+asyncpg://`.
 - `app/db/engine.py` strips `sslmode` (asyncpg doesn't understand it), enables SSL for Supabase
   hosts, and disables statement caching when the host is a Supavisor pooler (transaction mode).
-- Run `create extension if not exists vector;` once in the Supabase SQL editor (needed from
-  Phase 1 AI). Migration `0002` also enables `pg_trgm` for product-name search.
+- Migration `0006` enables pgvector and creates `knowledge_chunks`; migration `0002` enables
+  `pg_trgm` for product-name search. The Supabase project must allow extension creation.
 - Alembic is the only way schema changes happen — no dashboard edits.
 
 ## Product image storage
@@ -372,8 +415,9 @@ No accounts or login in v1 — a customer row is created with each new thread.
 All settings live in `app/config.py` and are loaded from environment / `backend/.env`
 (template: `backend/.env.example`). Notable keys: `DATABASE_URL`, `JWT_SECRET`,
 `JWT_EXPIRY_MINUTES`, `CORS_ORIGINS` (JSON list), `LOG_LEVEL`, `CREDENTIAL_ENCRYPTION_KEY`
-(required to store PayPal credentials — losing it makes stored credentials undecryptable), and
-Phase 1+ placeholders (`EMBEDDING_PROVIDER`, `GROQ_API_KEY`, global PayPal keys).
+(required to store PayPal credentials — losing it makes stored credentials undecryptable),
+`EMBEDDING_PROVIDER` + its provider credentials, and the Phase 2 agent keys (`GROQ_API_KEY`,
+`GROQ_AGENT_MODEL`, `GROQ_CHEAP_MODEL`).
 
 ## Logging & errors
 
@@ -389,9 +433,9 @@ Phase 1+ placeholders (`EMBEDDING_PROVIDER`, `GROQ_API_KEY`, global PayPal keys)
 - `uv run pytest -q` — unit tests (security, healthz, SSE hub, crypto, PayPal adapter with
   `httpx.MockTransport`) run offline.
 - DB-backed tests (`tests/test_auth_api.py`, `test_catalogue_api.py`, `test_orders.py`,
-  `test_conversations_api.py`, `test_payments.py`) run only when `TEST_DATABASE_URL` is set; they
-  create the schema with `metadata.create_all` and clean up rows marked `@plauda-test.com` /
-  slug prefix `pytest-`.
+  `test_conversations_api.py`, `test_payments.py`, and the RAG DB tests) run only when
+  `TEST_DATABASE_URL` is set; they create the schema with `metadata.create_all` and clean up rows
+  marked `@plauda-test.com` / slug prefix `pytest-`.
 - The suite round-trips to Supabase and takes ~30 minutes.
 - CI (`.github/workflows/ci.yml`): `ruff check`, `ruff format --check`, `pytest`.
 

@@ -33,6 +33,7 @@ async def db_client(monkeypatch):
 
     engine = engine_module.get_engine()
     async with engine.begin() as conn:
+        await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
         await conn.run_sync(Base.metadata.create_all)
 
     transport = ASGITransport(app=app)

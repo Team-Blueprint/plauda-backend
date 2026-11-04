@@ -4,9 +4,10 @@ Plauda gives every business an **AI employee**: it chats with customers from the
 approved information, recommends products, builds structured orders, sends a PayPal checkout,
 confirms payment from a verified webhook, and logs the sale to the owner's dashboard — 24/7.
 
-> Status: **Phase 5 backend** — catalogue, orders, conversations/SSE, PayPal, dashboard summary,
-> and payment audit are built. Refunds are next; the recovery worker and AI/agent work are paused.
-> See `BUILD_PLAN.md` for the full plan and `TASK_DIVISION.md` for the track split.
+> Status: **Phase 5 backend + AI RAG foundation** — catalogue, orders, conversations/SSE,
+> PayPal, dashboard summary, payment audit, and the RAG retrieval foundation are built. The next
+> AI slice is the agent core; refunds and the recovery worker are paused. See `BUILD_PLAN.md` for
+> the full plan and `TASK_DIVISION.md` for the track split.
 
 ## Stack
 
@@ -80,5 +81,6 @@ DB-backed tests run only when `TEST_DATABASE_URL` is set; everything else runs o
 - [`docs/contracts/openapi.json`](docs/contracts/openapi.json) — generated REST surface
 - [`docs/contracts/sse.md`](docs/contracts/sse.md) — chat + inbox streaming events
 - [`docs/contracts/enums.md`](docs/contracts/enums.md) — status/role enums
+- [`docs/ai.md`](docs/ai.md) — AI architecture, RAG/agent plan, grounding rules
 - [`docs/architecture.md`](docs/architecture.md) — backend internals
 - [`docs/status.md`](docs/status.md) — what's built / what's next
