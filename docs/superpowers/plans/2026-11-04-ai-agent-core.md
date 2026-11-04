@@ -61,6 +61,9 @@ backend/app/agent/
 - Live RAG verification passed with Cloudflare Workers AI: a seeded policy was indexed with
   `@cf/baai/bge-m3`, `search_business_info` found it, and the agent answered with the indexed
   return window. The temporary merchant and chunks were deleted.
+- Live RAG verification then passed with Gemini `gemini-embedding-001` at 1024 dimensions: the
+  seeded policy was reindexed, retrieved, and answered by the agent. Gemini is the active provider;
+  the temporary merchant and chunks were deleted.
 - Ollama is optional; the installed runner is missing `llama-server`, so local embeddings need a
   repair before use.
 

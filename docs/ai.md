@@ -2,7 +2,7 @@
 
 **Status:** Slice A (RAG foundation) is implemented and verified. Slice B (agent core) is
 implemented, covered by 13 targeted tests, live-verified against Groq with real catalogue and
-Cloudflare-backed RAG tool calls, and verified by the full backend suite (**115 tests passed**,
+Gemini-backed RAG tool calls, and verified by the full backend suite (**115 tests passed**,
 2026-11-04). Ordering tools are queued next.
 
 This document is the readable companion to the AI sections of
@@ -131,7 +131,7 @@ class EmbeddingProvider(Protocol):
 |---|---|---|---|
 | `cloudflare` | `@cf/baai/bge-m3` | 1024 | production primary |
 | `ollama_local` | `bge-m3` | 1024 | local dev / no card |
-| `gemini` | `gemini-embedding-001` | 1024 | backup / explicit switch |
+| `gemini` | `gemini-embedding-001` | 1024 | backup / explicit switch; active in dev |
 
 Vector spaces are never mixed. Every row records its provider and model, and switching the active
 provider requires a full reindex before search goes live.
@@ -165,10 +165,11 @@ The template default is `ollama_local`:
 ollama pull bge-m3
 ```
 
-This development machine currently uses Cloudflare Workers AI (`EMBEDDING_PROVIDER=cloudflare`,
-`@cf/baai/bge-m3`) because the installed Ollama server is missing its `llama-server` binary. Both
-providers produce 1024-dimensional BGE-M3 vectors, but switching providers requires reindexing all
-business-info documents before retrieval.
+This development machine currently uses Gemini (`EMBEDDING_PROVIDER=gemini`,
+`gemini-embedding-001`, 1024 dimensions); Cloudflare Workers AI is also configured and verified.
+The installed Ollama server is missing its `llama-server` binary, so it is optional. Every provider
+uses a different vector space; switching requires reindexing all business-info documents before
+retrieval.
 
 Required keys for the hosted providers:
 
@@ -184,8 +185,8 @@ embeddings and PydanticAI `TestModel`, so the code can be built and tested witho
 Live end-to-end chat also needs a working embedding provider (`ollama pull bge-m3` for local dev,
 or Cloudflare/Gemini credentials).
 
-Cloudflare and Groq are verified live on this machine. Ollama remains optional; repair its
-`llama-server` installation (or point `OLLAMA_BASE_URL` at a working instance) before using it.
+Gemini, Cloudflare, and Groq are verified live on this machine. Ollama remains optional; repair
+its `llama-server` installation (or point `OLLAMA_BASE_URL` at a working instance) before using it.
 
 The database must have pgvector enabled:
 
@@ -205,4 +206,4 @@ applied to the dev database.
 - Gemini failover and the full prompt-injection/golden-path suite
 
 Refunds and recovery remain in the Phase 5 backlog. The agent core is stable enough to build
-ordering tools on next. Live Groq turns and Cloudflare-backed RAG are verified.
+ordering tools on next. Live Groq turns and Gemini-backed RAG are verified.

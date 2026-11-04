@@ -119,11 +119,11 @@ round-trips to Supabase.
 | Public HTTPS URL for webhooks | ✅ ngrok verified | `APP_BASE_URL/webhooks/paypal/{merchant_id}`; update PayPal if the tunnel URL changes |
 | Frontend repo/location | Frontend dev | Contracts in `docs/contracts/` are ready |
 | Domain for `plauda.app` links | You | Open question in BUILD_PLAN §16 |
-| AI build | You | ✅ RAG foundation + agent core done 2026-11-04; live Groq catalogue and Cloudflare RAG turns verified; ordering tools are next |
+| AI build | You | ✅ RAG foundation + agent core done 2026-11-04; live Groq catalogue and Gemini RAG turns verified; ordering tools are next |
 | `GROQ_API_KEY` | You | ✅ configured in gitignored `backend/.env`; live turns use `openai/gpt-oss-120b` |
 | Rotate Groq API key | You (recommended) | The key was shared in chat; rotate it after local verification and update `backend/.env` |
-| Embedding provider | You | ✅ Cloudflare Workers AI `@cf/baai/bge-m3` configured and live-verified; this is the active provider |
+| Embedding provider | You | ✅ Gemini `gemini-embedding-001` configured and live-verified; this is the active provider |
+| Cloudflare backup | You | ✅ Workers AI `@cf/baai/bge-m3` configured and verified; switching back requires a full reindex |
 | Local Ollama | You (optional) | `bge-m3` is pulled, but the installed Ollama runner is missing `llama-server`; repair it only if you want offline embeddings |
-| Gemini key | You | Optional backup embedding provider; not configured |
 | Recovery worker | You | Paused by request; dashboard + audit are done |
 | Rotate Supabase DB password | You (optional) | The dev connection string was shared in chat; it is only in gitignored `.env` |

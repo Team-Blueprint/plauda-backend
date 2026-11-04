@@ -43,7 +43,7 @@ uv sync
 cp .env.example .env
 # → fill DATABASE_URL (Supabase pooler string), JWT_SECRET, and CREDENTIAL_ENCRYPTION_KEY
 #   (generate: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())")
-#   Live chat turns also need GROQ_API_KEY; RAG needs Cloudflare Workers AI keys or a working Ollama
+#   Live chat turns also need GROQ_API_KEY; RAG needs a Gemini/Cloudflare key or a working Ollama
 ```
 
 In the Supabase SQL editor, once per project:
