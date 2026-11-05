@@ -126,6 +126,10 @@ Full backend suite: **129 tests passed** on 2026-11-04 (offline units + Supabase
 including **27 targeted agent, safety, and ordering tests**. Runtime is ~30 min because every DB
 test round-trips to Supabase.
 
+> Run DB-backed pytest **serially**. Concurrent pytest processes share the `pytest-%` merchants in
+> the test database and cause false `Merchant not found` / stale-row failures. Eight tests that
+> failed in a mixed run all passed when rerun one process at a time on 2026-11-05.
+
 ## Open items
 
 | Item | Owner | Notes |
