@@ -18,6 +18,7 @@ Start here, then open the file for your task.
 | [`ai.md`](ai.md) | AI architecture, RAG/agent plan, grounding rules, build order | Backend + AI |
 | [`architecture.md`](architecture.md) | Backend stack, module layout, DB schema, multi-tenancy, env config, conventions | Backend + AI |
 | [`status.md`](status.md) | Phase tracker — what is built, what is next, what is blocked | Everyone |
+| [`deployment.md`](deployment.md) | FastAPI Cloud deployment, production env vars, health checks, PayPal webhook URL | Backend |
 
 ## How contracts stay in sync
 

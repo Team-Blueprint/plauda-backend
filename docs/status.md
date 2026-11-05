@@ -1,6 +1,6 @@
 # Build status
 
-Last updated: 2026-11-04
+Last updated: 2026-11-05
 
 ## Phase 0 — Foundations (backend) — ✅ complete
 
@@ -107,6 +107,19 @@ health check green. — ✅ **All verified.**
 
 ## Phase 6 — Failover & hardening — ⏸ not started
 
+## Production deployment — ✅ live
+
+| Task | Status |
+|---|---|
+| FastAPI Cloud app `plauda` (`backend/` as app directory) | ✅ deployed 2026-11-05 |
+| API + health check | ✅ <https://plauda.fastapicloud.dev/healthz> → `db: ok` |
+| Production env vars in FastAPI Cloud (secrets marked) | ✅ set from local `.env` |
+| `APP_BASE_URL` / `FRONTEND_BASE_URL` | ✅ API URL + <https://plauda.vercel.app> |
+| CORS preflight from the Vercel origin | ✅ `200` with `allow-origin: https://plauda.vercel.app` |
+| `/public/chat/plauda-store/meta` | ✅ returns `chat_link` with the Vercel domain |
+| PayPal webhook URL | ⏳ update in the PayPal dashboard (see [`deployment.md`](deployment.md)) |
+| CI deploy workflow (`fastapi cloud setup-ci`) | ⏸ optional |
+
 ## Test suite
 
 Full backend suite: **129 tests passed** on 2026-11-04 (offline units + Supabase-backed API tests),
@@ -119,7 +132,7 @@ test round-trips to Supabase.
 |---|---|---|
 | PayPal sandbox credentials | ✅ connected | New sandbox app + webhook stored for `plauda-store`; rotate the secret after testing |
 | PayPal sandbox buyer account | ✅ ready | Sandbox personal/buyer login available for the checkout test |
-| Public HTTPS URL for webhooks | ✅ ngrok verified | `APP_BASE_URL/webhooks/paypal/{merchant_id}`; update PayPal if the tunnel URL changes |
+| Public HTTPS URL for webhooks | ✅ deployed | `https://plauda.fastapicloud.dev/webhooks/paypal/{merchant_id}`; update the PayPal dashboard URL (ngrok no longer needed) |
 | Frontend repo/location | Frontend dev | Contracts in `docs/contracts/` are ready |
 | Domain for `plauda.app` links | You | Open question in BUILD_PLAN §16 |
 | AI build | You | ✅ RAG foundation, agent core, chat safety, and ordering tools done 2026-11-04; live Groq catalogue, Gemini RAG, and ordering flow verified; hardening is next |

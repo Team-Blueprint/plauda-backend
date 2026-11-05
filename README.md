@@ -9,6 +9,9 @@ confirms payment from a verified webhook, and logs the sale to the owner's dashb
 > are built. Refunds and the recovery worker are paused; AI hardening is next. See `BUILD_PLAN.md`
 > for the full plan and `TASK_DIVISION.md` for the track split.
 
+**Live API:** <https://plauda.fastapicloud.dev> · **Health:** <https://plauda.fastapicloud.dev/healthz>
+· **Frontend:** <https://plauda.vercel.app> · Deployment notes: [`docs/deployment.md`](docs/deployment.md).
+
 ## Stack
 
 | Layer | Choice |
