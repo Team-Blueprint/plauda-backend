@@ -117,7 +117,7 @@ health check green. — ✅ **All verified.**
 | `APP_BASE_URL` / `FRONTEND_BASE_URL` | ✅ API URL + <https://plauda.vercel.app> |
 | CORS preflight from the Vercel origin | ✅ `200` with `allow-origin: https://plauda.vercel.app` |
 | `/public/chat/plauda-store/meta` | ✅ returns `chat_link` with the Vercel domain |
-| PayPal webhook URL | ⏳ update in the PayPal dashboard (see [`deployment.md`](deployment.md)) |
+| PayPal webhook URL | ✅ updated to `https://plauda.fastapicloud.dev/webhooks/paypal/1db0327a-b40f-4054-b63e-70290c0cae55` (same webhook ID, 5 events) |
 | CI deploy workflow (`fastapi cloud setup-ci`) | ⏸ optional |
 
 ## Test suite

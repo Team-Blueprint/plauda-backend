@@ -104,9 +104,10 @@ For the current sandbox store `plauda-store`
 https://plauda.fastapicloud.dev/webhooks/paypal/1db0327a-b40f-4054-b63e-70290c0cae55
 ```
 
-Replace the old ngrok URL, keep the same subscribed events, and keep the webhook ID stored through
-`POST /settings/paypal` in sync. `APP_BASE_URL` is what makes return/cancel URLs point at the
-deployed API; `FRONTEND_BASE_URL` points buyers at the Vercel checkout result page.
+This URL was applied to the live sandbox webhook on 2026-11-05 (webhook ID
+`7WK76955E3394400T`, 5 subscribed events) with a PayPal `PATCH`, so the stored webhook ID remains
+valid and the old ngrok URL is retired. `APP_BASE_URL` is what makes return/cancel URLs point at
+the deployed API; `FRONTEND_BASE_URL` points buyers at the Vercel checkout result page.
 
 ## CI/CD (optional)
 
