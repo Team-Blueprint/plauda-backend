@@ -20,3 +20,8 @@ htmlcov/
 # Node (frontend, later)
 node_modules/
 dist/
+
+# Internal planning docs
+BUILD_PLAN.md
+TASK_DIVISION.md
+richtext_converted_to_markdown.md

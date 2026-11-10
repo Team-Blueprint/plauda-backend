@@ -6,8 +6,7 @@ confirms payment from a verified webhook, and logs the sale to the owner's dashb
 
 > Status: **Phase 5 backend + AI ordering** — catalogue, orders, conversations/SSE, PayPal,
 > dashboard summary, payment audit, RAG retrieval, grounded chat turns, and agent-driven ordering
-> are built. Refunds and the recovery worker are paused; AI hardening is next. See `BUILD_PLAN.md`
-> for the full plan and `TASK_DIVISION.md` for the track split.
+> are built. Refunds and the recovery worker are paused; AI hardening is next.
 
 **Live API:** <https://plauda.fastapicloud.dev> · **Health:** <https://plauda.fastapicloud.dev/healthz>
 · **Frontend:** <https://plauda.vercel.app> · Deployment notes: [`docs/deployment.md`](docs/deployment.md).
@@ -27,8 +26,6 @@ confirms payment from a verified webhook, and logs the sale to the owner's dashb
 
 ```
 plauda/
-├── BUILD_PLAN.md                 ← build plan
-├── TASK_DIVISION.md              ← team split
 ├── docs/contracts/               ← API + SSE + enums contracts (for the frontend dev)
 └── backend/
     ├── app/                      ← FastAPI app
