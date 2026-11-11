@@ -5,6 +5,8 @@
 Plauda gives every business a **24/7 AI employee**: it chats with customers strictly from the business's approved information, recommends real in-stock products, builds structured orders in chat, sends a PayPal checkout link, confirms payment only from a cryptographically verified PayPal webhook, and logs the sale to the owner's dashboard.
 
 - **Live Storefront & Merchant Dashboard (Frontend):** <https://plauda.vercel.app>
+- **Frontend Repository:** <https://github.com/battleangel217/plauda>
+- **Backend Repository:** <https://github.com/Team-Blueprint/plauda-backend>
 - **Live Backend API:** <https://plauda.fastapicloud.dev>
 - **Live Health Check:** <https://plauda.fastapicloud.dev/healthz>
 - **Interactive Swagger Docs:** <https://plauda.fastapicloud.dev/docs>
@@ -58,7 +60,7 @@ We built a complete **Postman Collection v2.1** and environment suite in [`postm
 | **Security** | JWT (`python-jose` + `bcrypt`) · SHA-256 Visitor Tokens · Fernet (`AES-128-CBC` + `HMAC-SHA256`) Credential Encryption |
 | **Real-Time Streaming** | Server-Sent Events (SSE) in-process pub/sub hub |
 | **API Testing & Contracts** | Postman Collection v2.1 · Newman · `pytest` (`129` automated tests) · `ruff` |
-| **Frontend & Hosting** | Next.js / React on Vercel (`plauda.vercel.app`) · FastAPI Cloud (`plauda.fastapicloud.dev`) |
+| **Frontend & Hosting** | Next.js / React on Vercel (`plauda.vercel.app` · [Repo](https://github.com/battleangel217/plauda)) · FastAPI Cloud (`plauda.fastapicloud.dev`) |
 
 ---
 
