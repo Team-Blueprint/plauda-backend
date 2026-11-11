@@ -1,0 +1,39 @@
+{
+  "Version": "1.0",
+  "GenerateCode": true,
+  "ImportValidation": {
+    "FailOnWarnings": false
+  },
+  "CodeGenSettings": {
+    "Synchronize": false,
+    "Timeout": 30,
+    "RetryConfiguration": {
+      "NumberOfRetries": 3,
+      "BackoffFactor": 2,
+      "StatusCodesToRetry": [
+        408,
+        429,
+        500,
+        502,
+        503,
+        504
+      ],
+      "RequestMethodsToRetry": [
+        "GET",
+        "PUT",
+        "DELETE"
+      ]
+    },
+    "ApplyCustomizations": [],
+    "GenerateModels": true,
+    "GenerateExceptions": true,
+    "EnableLogging": true,
+    "UseModelPrefix": false,
+    "UseControllerPrefix": true,
+    "UseEnumPrefix": true,
+    "ParameterArrayFormat": "Indexed"
+  },
+  "ExportSettings": {
+    "ExportFormat": "APIMATIC"
+  }
+}

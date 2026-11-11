@@ -26,6 +26,7 @@ confirms payment from a verified webhook, and logs the sale to the owner's dashb
 
 ```
 plauda/
+├── apimatic/                     ← APIMatic spec + strongly-typed Python SDK (plauda_sdk)
 ├── docs/contracts/               ← API + SSE + enums contracts (for the frontend dev)
 ├── postman/                      ← Postman Collection v2.1 + Production/Local environments
 └── backend/
@@ -81,6 +82,7 @@ DB-backed tests run only when `TEST_DATABASE_URL` is set; everything else runs o
 - [`docs/api/payments.md`](docs/api/payments.md) — PayPal setup, webhooks, payment links
 - [`docs/api/dashboard.md`](docs/api/dashboard.md) — revenue summary and payment audit
 - [`docs/contracts/openapi.json`](docs/contracts/openapi.json) — generated REST surface
+- [`apimatic/README.md`](apimatic/README.md) — APIMatic OpenAPI 3.0.3 spec, `APIMATIC-META.json`, and strongly-typed Python SDK (`plauda_sdk`)
 - [`postman/README.md`](postman/README.md) — Postman Collection v2.1 (`49` requests) + Production & Local environments
 - [`docs/contracts/sse.md`](docs/contracts/sse.md) — chat + inbox streaming events
 - [`docs/contracts/enums.md`](docs/contracts/enums.md) — status/role enums

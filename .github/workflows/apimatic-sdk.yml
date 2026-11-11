@@ -1,0 +1,41 @@
+name: APIMatic Spec Validation & Python SDK Check
+
+on:
+  push:
+    paths:
+      - "docs/contracts/openapi.json"
+      - "apimatic/**"
+  workflow_dispatch:
+
+jobs:
+  apimatic-validate-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js for APIMatic CLI
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Validate OpenAPI Specification with APIMatic CLI
+        continue-on-error: true
+        run: |
+          npx --yes @apimatic/cli@latest api:validate --file apimatic/plauda-openapi.json
+
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Verify Strongly-Typed Python SDK
+        run: |
+          pip install httpx
+          PYTHONPATH=apimatic/python-sdk python -c "
+          from plauda_sdk import PlaudaClient, Environment, OrderStatus, ConversationStatus
+          client = PlaudaClient(environment=Environment.PRODUCTION)
+          assert client.config.base_url == 'https://plauda.fastapicloud.dev'
+          client.close()
+          print('Plauda APIMatic Python SDK verified successfully!')
+          "
