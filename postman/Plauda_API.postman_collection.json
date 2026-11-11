@@ -1,0 +1,2647 @@
+{
+  "info": {
+    "_postman_id": "a94d8c10-65e8-4f2b-9a1d-7e940b18c201",
+    "name": "Plauda API \u2014 24/7 AI Employee & Verified PayPal Commerce",
+    "description": "Official Postman Collection for **Plauda** (`https://plauda.fastapicloud.dev`).\n\nPlauda gives every small and social-first business a 24/7 AI employee that chats from grounded store knowledge, recommends real in-stock products, builds structured order drafts, generates PayPal Orders v2 checkout links, verifies payment via signed PayPal webhooks, and logs sales to the merchant dashboard.\n\n### Quick Automated Flow\n1. Run **1. System & Health \u2192 Healthz** to verify live API + Supabase connectivity.\n2. Run **2. Merchant Auth \u2192 Login** (or **Register**) \u2014 Postman automatically extracts `access_token`, `store_slug`, and `merchant_id` into collection/environment variables.\n3. Run **7. Public Storefront & AI Agent Chat \u2192 Create Conversation** \u2014 Postman automatically saves `conversation_id` and `visitor_token`.\n4. Run **Public Chat Turn** to stream an AI agent turn over SSE.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. System & Health",
+      "item": [
+        {
+          "name": "Healthz (GET /healthz)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is successful or expected\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201, 202, 204]);",
+                  "});",
+                  "pm.test(\"Database health check is ok\", function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.status).to.eql(\"ok\");",
+                  "    pm.expect(jsonData.db).to.eql(\"ok\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/healthz",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "healthz"
+              ],
+              "query": []
+            },
+            "description": "Healthz"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "2. Merchant Auth",
+      "item": [
+        {
+          "name": "Register (POST /auth/register)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is successful or expected\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201, 202, 204]);",
+                  "});",
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "    const jsonData = pm.response.json();",
+                  "    if (jsonData.access_token) {",
+                  "        pm.environment.set(\"merchant_token\", jsonData.access_token);",
+                  "        pm.collectionVariables.set(\"merchant_token\", jsonData.access_token);",
+                  "    }",
+                  "    if (jsonData.merchant && jsonData.merchant.slug) {",
+                  "        pm.environment.set(\"store_slug\", jsonData.merchant.slug);",
+                  "        pm.collectionVariables.set(\"store_slug\", jsonData.merchant.slug);",
+                  "    }",
+                  "    if (jsonData.merchant && jsonData.merchant.id) {",
+                  "        pm.environment.set(\"merchant_id\", jsonData.merchant.id);",
+                  "        pm.collectionVariables.set(\"merchant_id\", jsonData.merchant.id);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/register",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "register"
+              ],
+              "query": []
+            },
+            "description": "Create a merchant (store) and its single owner account in one transaction.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"store_name\": \"sample\",\n  \"email\": \"merchant@plauda.app\",\n  \"password\": \"StrongPass123!\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Login (POST /auth/login)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is successful or expected\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201, 202, 204]);",
+                  "});",
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "    const jsonData = pm.response.json();",
+                  "    if (jsonData.access_token) {",
+                  "        pm.environment.set(\"merchant_token\", jsonData.access_token);",
+                  "        pm.collectionVariables.set(\"merchant_token\", jsonData.access_token);",
+                  "    }",
+                  "    if (jsonData.merchant && jsonData.merchant.slug) {",
+                  "        pm.environment.set(\"store_slug\", jsonData.merchant.slug);",
+                  "        pm.collectionVariables.set(\"store_slug\", jsonData.merchant.slug);",
+                  "    }",
+                  "    if (jsonData.merchant && jsonData.merchant.id) {",
+                  "        pm.environment.set(\"merchant_id\", jsonData.merchant.id);",
+                  "        pm.collectionVariables.set(\"merchant_id\", jsonData.merchant.id);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ],
+              "query": []
+            },
+            "description": "Login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"merchant@plauda.app\",\n  \"password\": \"StrongPass123!\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Me (GET /auth/me)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is successful or expected\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201, 202, 204]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{merchant_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/me",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "me"
+              ],
+              "query": []
+            },
+            "description": "Me"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "3. Catalogue & Variants",
+      "item": [
+        {
+          "name": "List Products (GET /products)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is successful or expected\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201, 202, 204]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{merchant_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/products",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "products"
+              ],
+              "query": [
+                {
+                  "key": "include_inactive",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "List Products"
+          },
+          "response": []
+        },
+        {
+          "name": "Create Product (POST /products)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is successful or expected\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201, 202, 204]);",
+                  "});",
+                  "if (pm.response.code === 201 || pm.response.code === 200) {",
+                  "    const jsonData = pm.response.json();",
+                  "    if (jsonData.id) {",
+                  "        pm.environment.set(\"product_id\", jsonData.id);",
+                  "        pm.collectionVariables.set(\"product_id\", jsonData.id);",
+                  "    }",
+                  "    if (jsonData.variants && jsonData.variants.length > 0) {",
+                  "        pm.environment.set(\"variant_id\", jsonData.variants[0].id);",
+                  "        pm.collectionVariables.set(\"variant_id\", jsonData.variants[0].id);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{merchant_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/products",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "products"
+              ],
+              "query": []
+            },
+            "description": "Create Product",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Signature Jollof Bowl\",\n  \"description\": \"Smoky party jollof rice served with plantain and grilled chicken.\",\n  \"price\": \"15.00\",\n  \"currency\": \"USD\",\n  \"active\": true,\n  \"image_urls\": [\n    \"sample\"\n  ],\n  \"variants\": [\n    {\n      \"name\": \"Signature Jollof Bowl\",\n      \"options\": {},\n      \"price_override\": {},\n      \"stock\": 25\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Product (GET /products/{product_id})",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is successful or expected\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201, 202, 204]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{merchant_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/products/{{product_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "products",
+                "{{product_id}}"
+              ],
+              "query": []
+            },
+            "description": "Get Product"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Product (PATCH /products/{product_id})",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is successful or expected\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201, 202, 204]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{merchant_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/products/{{product_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "products",
+                "{{product_id}}"
+              ],
+              "query": []
+            },
+            "description": "Update Product",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Signature Jollof Bowl\",\n  \"description\": \"Smoky party jollof rice served with plantain and grilled chicken.\",\n  \"price\": \"15.00\",\n  \"currency\": \"USD\",\n  \"active\": true,\n  \"image_urls\": [\n    \"sample\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Product (DELETE /products/{product_id})",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is successful or expected\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201, 202, 204]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{merchant_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/products/{{product_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "products",
+                "{{product_id}}"
+              ],
+              "query": []
+            },
+            "description": "Hard delete. Products referenced by order history must be deactivated instead."
+          },
+          "response": []
+        },
+        {
+          "name": "Create Variant (POST /products/{product_id}/variants)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is successful or expected\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201, 202, 204]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{merchant_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/products/{{product_id}}/variants",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "products",
+                "{{product_id}}",
+                "variants"
+              ],
+              "query": []
+            },
+            "description": "Create Variant",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Signature Jollof Bowl\",\n  \"options\": {},\n  \"price_override\": 10.0,\n  \"stock\": 25\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Variant (PATCH /products/{product_id}/variants/{variant_id})",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is successful or expected\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201, 202, 204]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{merchant_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/products/{{product_id}}/variants/{{variant_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "products",
+                "{{product_id}}",
+                "variants",
+                "{{variant_id}}"
+              ],
+              "query": []
+            },
+            "description": "Update Variant",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Signature Jollof Bowl\",\n  \"options\": {},\n  \"price_override\": 10.0,\n  \"stock\": 25\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Variant (DELETE /products/{product_id}/variants/{variant_id})",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is successful or expected\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201, 202, 204]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{merchant_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/products/{{product_id}}/variants/{{variant_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "products",
+                "{{product_id}}",
+                "variants",
+                "{{variant_id}}"
+              ],
+              "query": []
+            },
+            "description": "Delete Variant"
+          },
+          "response": []
+        },
+        {
+          "name": "Upload Product Image (POST /products/{product_id}/images)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is successful or expected\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201, 202, 204]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{merchant_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/products/{{product_id}}/images",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "products",
+                "{{product_id}}",
+                "images"
+              ],
+              "query": []
+            },
+            "description": "Upload Product Image",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Product Image (DELETE /products/{product_id}/images)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is successful or expected\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201, 202, 204]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{merchant_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/products/{{product_id}}/images",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "products",
+                "{{product_id}}",
+                "images"
+              ],
+              "query": [
+                {
+                  "key": "url",
+                  "value": "",
+                  "description": "",
+                  "disabled": false
+                }
+              ]
+            },
+            "description": "Delete Product Image"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "4. Delivery Zones",
+      "item": [
+        {
+          "name": "List Zones (GET /delivery-zones)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is successful or expected\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201, 202, 204]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{merchant_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/delivery-zones",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "delivery-zones"
+              ],
+              "query": []
+            },
+            "description": "List Zones"
+          },
+          "response": []
+        },
+        {
+          "name": "Create Zone (POST /delivery-zones)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is successful or expected\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201, 202, 204]);",
+                  "});",
+                  "if (pm.response.code === 201 || pm.response.code === 200) {",
+                  "    const jsonData = pm.response.json();",
+                  "    if (jsonData.id) {",
+                  "        pm.environment.set(\"zone_id\", jsonData.id);",
+                  "        pm.collectionVariables.set(\"zone_id\", jsonData.id);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{merchant_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/delivery-zones",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "delivery-zones"
+              ],
+              "query": []
+            },
+            "description": "Create Zone",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Signature Jollof Bowl\",\n  \"areas\": [\n    \"sample\"\n  ],\n  \"fee\": \"3.50\",\n  \"eta_days\": 0\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Zone (GET /delivery-zones/{zone_id})",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is successful or expected\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201, 202, 204]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{merchant_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/delivery-zones/{{zone_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "delivery-zones",
+                "{{zone_id}}"
+              ],
+              "query": []
+            },
+            "description": "Get Zone"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Zone (PATCH /delivery-zones/{zone_id})",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is successful or expected\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201, 202, 204]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{merchant_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/delivery-zones/{{zone_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "delivery-zones",
+                "{{zone_id}}"
+              ],
+              "query": []
+            },
+            "description": "Update Zone",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Signature Jollof Bowl\",\n  \"areas\": [\n    \"sample\"\n  ],\n  \"fee\": \"3.50\",\n  \"eta_days\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Zone (DELETE /delivery-zones/{zone_id})",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is successful or expected\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201, 202, 204]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{merchant_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/delivery-zones/{{zone_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "delivery-zones",
+                "{{zone_id}}"
+              ],
+              "query": []
+            },
+            "description": "Delete Zone"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "5. Business Info & RAG Knowledge",
+      "item": [
+        {
+          "name": "Get Business Info (GET /business-info)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is successful or expected\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201, 202, 204]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{merchant_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/business-info",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "business-info"
+              ],
+              "query": []
+            },
+            "description": "Always returns all three sources; missing documents come back with empty content."
+          },
+          "response": []
+        },
+        {
+          "name": "Put Business Info (PUT /business-info/{source})",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is successful or expected\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201, 202, 204]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{merchant_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/business-info/{{info_source}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "business-info",
+                "{{info_source}}"
+              ],
+              "query": []
+            },
+            "description": "Upsert one markdown document. Reindexing (chunk + embed) is wired in Phase 1 AI.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"Hi! What is your return policy and what do you have in stock under $20?\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "6. Store & PayPal Settings",
+      "item": [
+        {
+          "name": "Get Settings Endpoint (GET /settings)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is successful or expected\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201, 202, 204]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{merchant_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/settings",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "settings"
+              ],
+              "query": []
+            },
+            "description": "Get Settings Endpoint"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Settings (PATCH /settings)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is successful or expected\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201, 202, 204]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{merchant_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/settings",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "settings"
+              ],
+              "query": []
+            },
+            "description": "Update Settings",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currency\": \"USD\",\n  \"refund_cap\": 10.0,\n  \"recovery_reminder_enabled\": true,\n  \"recovery_timeout_minutes\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Paypal Status (GET /settings/paypal)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is successful or expected\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201, 202, 204]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{merchant_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/settings/paypal",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "settings",
+                "paypal"
+              ],
+              "query": []
+            },
+            "description": "Get Paypal Status"
+          },
+          "response": []
+        },
+        {
+          "name": "Connect Paypal (POST /settings/paypal)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is successful or expected\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201, 202, 204]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{merchant_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/settings/paypal",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "settings",
+                "paypal"
+              ],
+              "query": []
+            },
+            "description": "Connect Paypal",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"client_id\": \"{{paypal_client_id}}\",\n  \"client_secret\": \"{{paypal_client_secret}}\",\n  \"webhook_id\": \"{{paypal_webhook_id}}\",\n  \"env\": \"sandbox\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Disconnect Paypal (DELETE /settings/paypal)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is successful or expected\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201, 202, 204]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{merchant_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/settings/paypal",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "settings",
+                "paypal"
+              ],
+              "query": []
+            },
+            "description": "Disconnect Paypal"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "7. Public Storefront & AI Agent Chat",
+      "item": [
+        {
+          "name": "Public Store Meta (GET /public/chat/{slug}/meta)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is successful or expected\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201, 202, 204]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/public/chat/{{store_slug}}/meta",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "public",
+                "chat",
+                "{{store_slug}}",
+                "meta"
+              ],
+              "query": []
+            },
+            "description": "Public Store Meta"
+          },
+          "response": []
+        },
+        {
+          "name": "Create Conversation (POST /public/chat/{slug}/conversations)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is successful or expected\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201, 202, 204]);",
+                  "});",
+                  "if (pm.response.code === 201 || pm.response.code === 200) {",
+                  "    const jsonData = pm.response.json();",
+                  "    const convId = jsonData.conversation_id || (jsonData.conversation && jsonData.conversation.id) || jsonData.id;",
+                  "    if (convId) {",
+                  "        pm.environment.set(\"conversation_id\", convId);",
+                  "        pm.collectionVariables.set(\"conversation_id\", convId);",
+                  "    }",
+                  "    if (jsonData.visitor_token) {",
+                  "        pm.environment.set(\"visitor_token\", jsonData.visitor_token);",
+                  "        pm.collectionVariables.set(\"visitor_token\", jsonData.visitor_token);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/public/chat/{{store_slug}}/conversations",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "public",
+                "chat",
+                "{{store_slug}}",
+                "conversations"
+              ],
+              "query": []
+            },
+            "description": "Create Conversation",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Signature Jollof Bowl\",\n  \"contact\": \"sample\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Public Messages (GET /public/conversations/{conversation_id}/messages)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is successful or expected\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201, 202, 204]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{visitor_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/public/conversations/{{conversation_id}}/messages",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "public",
+                "conversations",
+                "{{conversation_id}}",
+                "messages"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "offset",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Public Messages"
+          },
+          "response": []
+        },
+        {
+          "name": "Public Send Message (POST /public/conversations/{conversation_id}/messages)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is successful or expected\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201, 202, 204]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{visitor_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/public/conversations/{{conversation_id}}/messages",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "public",
+                "conversations",
+                "{{conversation_id}}",
+                "messages"
+              ],
+              "query": []
+            },
+            "description": "Public Send Message",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"Hi! What is your return policy and what do you have in stock under $20?\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Public Handoff (POST /public/conversations/{conversation_id}/handoff)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is successful or expected\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201, 202, 204]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{visitor_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/public/conversations/{{conversation_id}}/handoff",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "public",
+                "conversations",
+                "{{conversation_id}}",
+                "handoff"
+              ],
+              "query": []
+            },
+            "description": "Public Handoff",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"sample\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Public Stream (GET /public/conversations/{conversation_id}/stream)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is successful or expected\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201, 202, 204]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{visitor_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/public/conversations/{{conversation_id}}/stream",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "public",
+                "conversations",
+                "{{conversation_id}}",
+                "stream"
+              ],
+              "query": []
+            },
+            "description": "Public Stream"
+          },
+          "response": []
+        },
+        {
+          "name": "Public Chat Turn (POST /public/chat/{slug}/messages)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is successful or expected\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201, 202, 204]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{visitor_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/public/chat/{{store_slug}}/messages",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "public",
+                "chat",
+                "{{store_slug}}",
+                "messages"
+              ],
+              "query": []
+            },
+            "description": "Persist a buyer message and stream one assistant turn over SSE.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"conversation_id\": \"sample\",\n  \"content\": \"Hi! What is your return policy and what do you have in stock under $20?\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "8. Merchant Inbox & Human Handoff",
+      "item": [
+        {
+          "name": "Owner Stream (GET /conversations/stream)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is successful or expected\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201, 202, 204]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{merchant_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/conversations/stream",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "conversations",
+                "stream"
+              ],
+              "query": []
+            },
+            "description": "Owner Stream"
+          },
+          "response": []
+        },
+        {
+          "name": "List Conversations (GET /conversations)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is successful or expected\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201, 202, 204]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{merchant_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/conversations",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "conversations"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "offset",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "List Conversations"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Conversation Detail (GET /conversations/{conversation_id})",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is successful or expected\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201, 202, 204]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{merchant_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/conversations/{{conversation_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "conversations",
+                "{{conversation_id}}"
+              ],
+              "query": []
+            },
+            "description": "Get Conversation Detail"
+          },
+          "response": []
+        },
+        {
+          "name": "Inbox Messages (GET /conversations/{conversation_id}/messages)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is successful or expected\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201, 202, 204]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{merchant_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/conversations/{{conversation_id}}/messages",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "conversations",
+                "{{conversation_id}}",
+                "messages"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "offset",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Inbox Messages"
+          },
+          "response": []
+        },
+        {
+          "name": "Staff Reply (POST /conversations/{conversation_id}/messages)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is successful or expected\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201, 202, 204]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{merchant_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/conversations/{{conversation_id}}/messages",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "conversations",
+                "{{conversation_id}}",
+                "messages"
+              ],
+              "query": []
+            },
+            "description": "Staff Reply",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"Hi! What is your return policy and what do you have in stock under $20?\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Accept Conversation (POST /conversations/{conversation_id}/accept)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is successful or expected\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201, 202, 204]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{merchant_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/conversations/{{conversation_id}}/accept",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "conversations",
+                "{{conversation_id}}",
+                "accept"
+              ],
+              "query": []
+            },
+            "description": "Accept Conversation"
+          },
+          "response": []
+        },
+        {
+          "name": "Return To Ai (POST /conversations/{conversation_id}/return-to-ai)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is successful or expected\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201, 202, 204]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{merchant_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/conversations/{{conversation_id}}/return-to-ai",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "conversations",
+                "{{conversation_id}}",
+                "return-to-ai"
+              ],
+              "query": []
+            },
+            "description": "Return To Ai"
+          },
+          "response": []
+        },
+        {
+          "name": "Close Conversation (POST /conversations/{conversation_id}/close)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is successful or expected\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201, 202, 204]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{merchant_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/conversations/{{conversation_id}}/close",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "conversations",
+                "{{conversation_id}}",
+                "close"
+              ],
+              "query": []
+            },
+            "description": "Close Conversation"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "9. Orders & PayPal Checkout Links",
+      "item": [
+        {
+          "name": "List Orders (GET /orders)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is successful or expected\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201, 202, 204]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{merchant_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/orders",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "offset",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "List Orders"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Order (GET /orders/{order_id})",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is successful or expected\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201, 202, 204]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{merchant_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/orders/{{order_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders",
+                "{{order_id}}"
+              ],
+              "query": []
+            },
+            "description": "Get Order"
+          },
+          "response": []
+        },
+        {
+          "name": "Create Order Payment Link (POST /orders/{order_id}/payment-link)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is successful or expected\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201, 202, 204]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{merchant_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/orders/{{order_id}}/payment-link",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders",
+                "{{order_id}}",
+                "payment-link"
+              ],
+              "query": []
+            },
+            "description": "Create the PayPal approval link for a confirmed order.\n\nIdempotent while the order is pending payment: repeated calls return the existing link\ninstead of creating another PayPal order."
+          },
+          "response": []
+        },
+        {
+          "name": "Cancel Order (POST /orders/{order_id}/cancel)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is successful or expected\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201, 202, 204]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{merchant_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/orders/{{order_id}}/cancel",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders",
+                "{{order_id}}",
+                "cancel"
+              ],
+              "query": []
+            },
+            "description": "Cancel Order"
+          },
+          "response": []
+        },
+        {
+          "name": "Fulfill Order (POST /orders/{order_id}/fulfill)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is successful or expected\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201, 202, 204]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{merchant_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/orders/{{order_id}}/fulfill",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "orders",
+                "{{order_id}}",
+                "fulfill"
+              ],
+              "query": []
+            },
+            "description": "Fulfill Order"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "10. PayPal Webhooks",
+      "item": [
+        {
+          "name": "Paypal Webhook (POST /webhooks/paypal/{merchant_id})",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is successful or expected\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201, 202, 204]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/webhooks/paypal/{{merchant_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "webhooks",
+                "paypal",
+                "{{merchant_id}}"
+              ],
+              "query": []
+            },
+            "description": "Paypal Webhook"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "11. Dashboard & Payment Audit",
+      "item": [
+        {
+          "name": "Get Dashboard Summary (GET /dashboard/summary)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is successful or expected\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201, 202, 204]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{merchant_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/dashboard/summary",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "dashboard",
+                "summary"
+              ],
+              "query": []
+            },
+            "description": "Get Dashboard Summary"
+          },
+          "response": []
+        },
+        {
+          "name": "List Audit (GET /audit)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is successful or expected\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201, 202, 204]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{merchant_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/audit",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "audit"
+              ],
+              "query": [
+                {
+                  "key": "order_id",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "action",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "trigger",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "result",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "since",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "until",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                },
+                {
+                  "key": "offset",
+                  "value": "",
+                  "description": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "List Audit"
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "https://plauda.fastapicloud.dev",
+      "type": "string"
+    },
+    {
+      "key": "store_slug",
+      "value": "plauda-store",
+      "type": "string"
+    },
+    {
+      "key": "merchant_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "visitor_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "merchant_id",
+      "value": "1db0327a-b40f-4054-b63e-70290c0cae55",
+      "type": "string"
+    },
+    {
+      "key": "product_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "variant_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "zone_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "info_source",
+      "value": "policies",
+      "type": "string"
+    },
+    {
+      "key": "conversation_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "order_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "paypal_client_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "paypal_client_secret",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "paypal_webhook_id",
+      "value": "",
+      "type": "string"
+    }
+  ]
+}
